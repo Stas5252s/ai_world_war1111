@@ -1,0 +1,24 @@
+# Replace ACTIONS and ACTION_LABELS at the bottom of worldwar/data.py with:
+
+ACTIONS = [
+    "invest_economy", "research", "social_program", "diplomacy", "trade",
+    "mobilize", "deescalate", "sanction", "conflict",
+    "form_alliance", "break_alliance", "declare_war", "peace", "continue_war"
+]
+
+ACTION_LABELS = {
+    "invest_economy": "Invest in economy",
+    "research": "Fund research",
+    "social_program": "Launch social programme",
+    "diplomacy": "Improve relations",
+    "trade": "Propose trade agreement",
+    "mobilize": "Increase readiness",
+    "deescalate": "De-escalate tensions",
+    "sanction": "Apply economic pressure",
+    "conflict": "Initiate abstract conflict",
+    "form_alliance": "Form alliance",
+    "break_alliance": "Break alliance",
+    "declare_war": "Declare war",
+    "peace": "Negotiate peace",
+    "continue_war": "Continue ongoing war"
+}

@@ -150,15 +150,9 @@ COUNTRIES = {
 }
 
 ACTIONS = [
-    "invest_economy",
-    "research",
-    "social_program",
-    "diplomacy",
-    "trade",
-    "mobilize",
-    "deescalate",
-    "sanction",
-    "conflict"
+    "invest_economy", "research", "social_program", "diplomacy", "trade",
+    "mobilize", "deescalate", "sanction", "conflict",
+    "form_alliance", "break_alliance", "declare_war", "peace", "continue_war"
 ]
 
 ACTION_LABELS = {
@@ -170,5 +164,10 @@ ACTION_LABELS = {
     "mobilize": "Increase readiness",
     "deescalate": "De-escalate tensions",
     "sanction": "Apply economic pressure",
-    "conflict": "Initiate abstract conflict"
+    "conflict": "Initiate abstract conflict",
+    "form_alliance": "Form alliance",
+    "break_alliance": "Break alliance",
+    "declare_war": "Declare war",
+    "peace": "Negotiate peace",
+    "continue_war": "Continue ongoing war"
 }
