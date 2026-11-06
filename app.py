@@ -38,7 +38,7 @@ with st.sidebar:
   for n in countries: st.session_state['provider_'+n]=dp; st.session_state['model_'+n]=dm
   st.success('Settings applied.')
 cols=st.columns(4); cols[0].metric('Sovereign states',len(independent_countries)); cols[1].metric('Annexed territories',annexed_territories); cols[2].metric('World GDP (USD T)',f"{sum(c['gdp'] for c in countries.values()):.2f}"); cols[3].metric('Active wars',sum(1 for w in world.get('wars',{}).values() if w.get('status')=='active'))
-tmap,tc,tx,td,te,tp,ta=st.tabs(['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🎮 Player intervention','🤖 AI agents'])
+tmap,tc,tx,td,te,tp,ta,th=st.tabs(['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🎮 Player intervention','🤖 AI agents','📈 History'])
 with tmap:
  df=pd.DataFrame([{'Country':n,'ISO':c['iso'],'GDP':c['gdp'],'Stability':c['stability'],'Military':c['military'],'Controller':sovereignty.get(n,n)} for n,c in countries.items()])
  map_mode=st.radio('Map layer',['Stability','Territorial control'],horizontal=True)
@@ -184,4 +184,62 @@ with ta:
   st.text_input('Model override',key='model_'+agent_country,placeholder='Use environment default')
   st.caption('Profile: '+countries[agent_country]['style'])
   st.caption('Economic profile: GDP '+str(round(countries[agent_country]['gdp'],3))+'T · production '+str(round(countries[agent_country].get('production',0),1))+'/100')
+with th:
+ st.subheader('Simulation history')
+ st.caption('One turn represents one simulated year. History starts at turn 0 and is recorded after every completed turn.')
+ history=world.get('history',[])
+ if not history:
+  st.info('No historical snapshots yet. Advance the simulation to start building its timeline.')
+ else:
+  history_rows=[]
+  for snapshot in history:
+   snapshot_countries=snapshot.get('countries',{})
+   world_gdp=snapshot.get('world_gdp')
+   world_population=snapshot.get('world_population')
+   if world_gdp is None:
+    world_gdp=sum(v.get('gdp',0) for v in snapshot_countries.values() if isinstance(v,dict))
+   if world_population is None:
+    world_population=sum(v.get('population',0) for v in snapshot_countries.values() if isinstance(v,dict))
+   old_wars=snapshot.get('wars',{})
+   active_wars=snapshot.get('active_wars')
+   if active_wars is None:
+    active_wars=sum(1 for w in old_wars.values() if w.get('status')=='active') if isinstance(old_wars,dict) else 0
+   old_sovereignty=snapshot.get('sovereignty',{})
+   sovereign_states=snapshot.get('sovereign_states')
+   if sovereign_states is None:
+    sovereign_states=sum(1 for country_name,owner in old_sovereignty.items() if country_name==owner) if old_sovereignty else len(countries)
+   history_rows.append({'Turn':snapshot.get('turn',0),'World GDP (USD T)':world_gdp,'World population (M)':world_population,'Active wars':active_wars,'Sovereign states':sovereign_states})
+  history_df=pd.DataFrame(history_rows).sort_values('Turn').drop_duplicates('Turn',keep='last')
+  st.markdown('### World timeline')
+  world_metric=st.selectbox('World indicator',['World GDP (USD T)','World population (M)','Active wars','Sovereign states'],key='world_history_metric')
+  st.line_chart(history_df.set_index('Turn')[[world_metric]],use_container_width=True)
+  first=history_df.iloc[0]
+  latest=history_df.iloc[-1]
+  k=st.columns(4)
+  k[0].metric('World GDP',f"${latest['World GDP (USD T)']:.2f}T",f"{latest['World GDP (USD T)']-first['World GDP (USD T)']:+.2f}T since start")
+  k[1].metric('Population',f"{latest['World population (M)']:,.1f}M",f"{latest['World population (M)']-first['World population (M)']:+,.1f}M")
+  k[2].metric('Active wars',int(latest['Active wars']),f"{int(latest['Active wars'])-int(first['Active wars']):+d} since start")
+  k[3].metric('Sovereign states',int(latest['Sovereign states']),f"{int(latest['Sovereign states'])-int(first['Sovereign states']):+d} since start")
+  st.divider()
+  st.markdown('### Country development')
+  history_country=st.selectbox('Country',list(countries),key='history_country')
+  country_metric=st.selectbox('Indicator',['GDP (USD bn)','Population (M)','Stability','Technology','Military','Production'],key='country_history_metric')
+  country_rows=[]
+  for snapshot in history:
+   data=snapshot.get('countries',{}).get(history_country,{})
+   if isinstance(data,dict) and data:
+    value=data.get('gdp',0)*1000 if country_metric=='GDP (USD bn)' else data.get({'Population (M)':'population','Stability':'stability','Technology':'tech','Military':'military','Production':'production'}[country_metric],0)
+    country_rows.append({'Turn':snapshot.get('turn',0),country_metric:value})
+  if country_rows:
+   country_df=pd.DataFrame(country_rows).sort_values('Turn').drop_duplicates('Turn',keep='last')
+   st.line_chart(country_df.set_index('Turn')[[country_metric]],use_container_width=True)
+   start_value=country_df.iloc[0][country_metric]
+   current_value=country_df.iloc[-1][country_metric]
+   delta=current_value-start_value
+   st.metric(f'{history_country} · {country_metric}',f'{current_value:,.3f}',f'{delta:+,.3f} since start')
+  else:
+   st.info('This country has no compatible historical data yet. New snapshots will appear after the next turn.')
+  st.markdown('### Recorded turns')
+  st.dataframe(history_df.set_index('Turn'),use_container_width=True)
+
 st.divider(); st.caption('Population and GDP baselines use 2024 data where available; stability, military, technology and resource indices are game estimates.')
