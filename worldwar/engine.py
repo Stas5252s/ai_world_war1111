@@ -24,6 +24,8 @@ def new_world(seed=7):
         "turn": 0, "countries": countries, "relations": relations,
         "alliances": {n: [] for n in names},
         "wars": {}, "next_war_id": 1,
+        "guarantees": [], "trade_agreements": [], "blocs": {},
+        "next_bloc_id": 1, "ultimatums": [],
         "sovereignty": {n: n for n in names},
         "events": [{"turn": 0, "kind": "world",
                     "text": "The simulation begins. Every government seeks global influence."}],
@@ -87,6 +89,40 @@ def _break_alliance(s, a, b):
         s["relations"][b][a] = clamp(s["relations"][b][a] - 10, -100, 100)
         _event(s, "betrayal", f"{a} withdrew from its alliance with {b}.")
 
+
+def _create_bloc(s, founder):
+    for bloc in s.setdefault("blocs", {}).values():
+        if founder in bloc.get("members", []):
+            _event(s, "diplomacy", f"{founder} already belongs to {bloc['name']}.")
+            return
+    bid = str(s.get("next_bloc_id", 1))
+    s["next_bloc_id"] = int(bid) + 1
+    name = f"International Bloc {bid}"
+    s["blocs"][bid] = {"id": bid, "name": name, "leader": founder, "members": [founder]}
+    _event(s, "diplomacy", f"{founder} founded {name}.")
+
+def _invite_to_bloc(s, founder, target):
+    blocs = s.setdefault("blocs", {})
+    bloc = next((b for b in blocs.values() if b.get("leader") == founder), None)
+    if bloc is None:
+        _create_bloc(s, founder)
+        bloc = next((b for b in blocs.values() if b.get("leader") == founder), None)
+    if any(target in b.get("members", []) for b in blocs.values()):
+        _event(s, "diplomacy", f"{target} already belongs to a bloc.")
+        return
+    bloc["members"].append(target)
+    s["relations"][founder][target] = clamp(s["relations"][founder][target] + 10, -100, 100)
+    s["relations"][target][founder] = clamp(s["relations"][target][founder] + 10, -100, 100)
+    _event(s, "diplomacy", f"{target} joined {bloc['name']} led by {founder}.")
+
+def _sever_relations(s, a, b):
+    s["relations"][a][b] = -100
+    s["relations"][b][a] = -100
+    _break_alliance(s, a, b)
+    s["trade_agreements"] = [x for x in s.get("trade_agreements", []) if set(x.get("countries", [])) != {a, b}]
+    s["guarantees"] = [x for x in s.get("guarantees", []) if not (x.get("guarantor") == a and x.get("protected") == b)]
+    _event(s, "diplomacy", f"{a} severed diplomatic relations with {b}.")
+
 def _start_war(s, attacker, defender):
     independent = _independent_countries(s)
     if defender not in independent or attacker not in independent or attacker == defender:
@@ -108,6 +144,15 @@ def _start_war(s, attacker, defender):
     s["relations"][attacker][defender] = clamp(s["relations"][attacker][defender] - 35, -100, 100)
     s["relations"][defender][attacker] = clamp(s["relations"][defender][attacker] - 35, -100, 100)
     _event(s, "war", f"War #{wid} began: {attacker} vs {defender}.")
+
+
+    for guarantee in s.get("guarantees", []):
+        if guarantee.get("protected") == defender:
+            guarantor = guarantee.get("guarantor")
+            if guarantor in independent and guarantor not in s["wars"][wid]["participants"]:
+                s["wars"][wid]["side_b"].append(guarantor)
+                s["wars"][wid]["participants"].append(guarantor)
+                _event(s, "diplomacy", f"{guarantor} honored its guarantee to {defender} and joined war #{wid}.")
 
     # Mutual-defense allies join automatically, unless already fighting on the other side.
     for ally in list(s.get("alliances", {}).get(defender, [])):
@@ -250,6 +295,38 @@ def apply_action(s, country, action, target=None, rationale=""):
         c["military"] = clamp(c["military"] + 5)
         c["gdp"] = round(max(.05, c["gdp"] * .997), 3)
         msg, kind = f"{country} increased abstract readiness.", "military"
+
+    elif action == "create_bloc":
+        _create_bloc(s, country)
+        return
+    elif action == "invite_to_bloc" and valid:
+        _invite_to_bloc(s, country, target)
+        return
+    elif action == "guarantee_independence" and valid:
+        if not any(x.get("guarantor") == country and x.get("protected") == target for x in s.setdefault("guarantees", [])):
+            s["guarantees"].append({"guarantor": country, "protected": target, "since": s["turn"]})
+            _event(s, "diplomacy", f"{country} guaranteed the independence of {target}.")
+        return
+    elif action == "revoke_guarantee" and valid:
+        s["guarantees"] = [x for x in s.setdefault("guarantees", []) if not (x.get("guarantor") == country and x.get("protected") == target)]
+        _event(s, "diplomacy", f"{country} revoked its guarantee to {target}.")
+        return
+    elif action == "ultimatum" and valid:
+        s.setdefault("ultimatums", []).append({"issuer": country, "target": target, "issued": s["turn"], "expires": s["turn"] + 2, "status": "pending"})
+        rel[country][target] = clamp(rel[country][target] - 12, -100, 100)
+        _event(s, "diplomacy", f"{country} issued an ultimatum to {target}.")
+        return
+    elif action in ("accept_ultimatum", "reject_ultimatum") and valid:
+        pending = next((u for u in reversed(s.setdefault("ultimatums", [])) if u.get("issuer") == target and u.get("target") == country and u.get("status") == "pending"), None)
+        if pending:
+            pending["status"] = "accepted" if action == "accept_ultimatum" else "rejected"
+            delta = 12 if action == "accept_ultimatum" else -18
+            rel[country][target] = clamp(rel[country][target] + delta, -100, 100)
+            _event(s, "diplomacy", f"{country} {pending['status']} the ultimatum from {target}.")
+        return
+    elif action == "sever_relations" and valid:
+        _sever_relations(s, country, target)
+        return
     elif action in ("diplomacy", "trade", "sanction", "deescalate") and valid:
         if action == "diplomacy":
             rel[country][target] = clamp(rel[country][target] + 12, -100, 100)
@@ -258,9 +335,12 @@ def apply_action(s, country, action, target=None, rationale=""):
         elif action == "trade":
             rel[country][target] = clamp(rel[country][target] + 8, -100, 100)
             rel[target][country] = clamp(rel[target][country] + 8, -100, 100)
+            pair = sorted([country, target])
+            if not any(sorted(x.get("countries", [])) == pair for x in s.setdefault("trade_agreements", [])):
+                s["trade_agreements"].append({"countries": pair, "signed": s["turn"]})
             c["gdp"] = round(c["gdp"] * 1.008, 3)
             cs[target]["gdp"] = round(cs[target]["gdp"] * 1.006, 3)
-            msg, kind = f"{country} and {target} signed a trade agreement.", "economy"
+            msg, kind = f"{country} and {target} signed a continuing trade agreement.", "economy"
         elif action == "sanction":
             rel[country][target] = clamp(rel[country][target] - 12, -100, 100)
             cs[target]["gdp"] = round(max(.05, cs[target]["gdp"] * .992), 3)
@@ -296,6 +376,11 @@ def apply_action(s, country, action, target=None, rationale=""):
     _event(s, kind, msg, rationale)
 
 def _passive(s):
+    for agreement in s.get("trade_agreements", []):
+        a, b = agreement.get("countries", [None, None])
+        if a in s["countries"] and b in s["countries"]:
+            s["countries"][a]["gdp"] = round(s["countries"][a]["gdp"] * 1.0015, 3)
+            s["countries"][b]["gdp"] = round(s["countries"][b]["gdp"] * 1.0015, 3)
     independent = set(_independent_countries(s))
     for name, c in s["countries"].items():
         if name not in independent:
@@ -310,8 +395,19 @@ def _passive(s):
 def advance_turn(state, providers=None):
     state.setdefault("alliances", {n: [] for n in state["countries"]})
     state.setdefault("wars", {})
+    state.setdefault("guarantees", [])
+    state.setdefault("trade_agreements", [])
+    state.setdefault("blocs", {})
+    state.setdefault("ultimatums", [])
     _ensure_sovereignty(state)
     state["turn"] += 1
+    for ultimatum in state.setdefault("ultimatums", []):
+        if ultimatum.get("status") == "pending" and state["turn"] >= ultimatum.get("expires", 0):
+            ultimatum["status"] = "expired"
+            issuer, target = ultimatum["issuer"], ultimatum["target"]
+            state["relations"][issuer][target] = clamp(state["relations"][issuer][target] - 12, -100, 100)
+            state["relations"][target][issuer] = clamp(state["relations"][target][issuer] - 12, -100, 100)
+            _event(state, "diplomacy", f"{target} ignored the ultimatum from {issuer}; relations deteriorated.")
     snap = copy.deepcopy(state)
     decisions = []
     providers = providers or {}
