@@ -24,10 +24,22 @@ def new_world(seed=7):
         "turn": 0, "countries": countries, "relations": relations,
         "alliances": {n: [] for n in names},
         "wars": {}, "next_war_id": 1,
+        "sovereignty": {n: n for n in names},
         "events": [{"turn": 0, "kind": "world",
                     "text": "The simulation begins. Every government seeks global influence."}],
         "history": []
     }
+
+def _ensure_sovereignty(s):
+    """Keep old saved sessions compatible with the territorial-control system."""
+    ownership = s.setdefault("sovereignty", {})
+    for name in s["countries"]:
+        ownership.setdefault(name, name)
+    return ownership
+
+def _independent_countries(s):
+    ownership = _ensure_sovereignty(s)
+    return [name for name in s["countries"] if ownership.get(name, name) == name]
 
 def _event(s, kind, text, rationale=""):
     s["events"].append({
@@ -51,7 +63,8 @@ def _active_war_between(s, a, b):
     )
 
 def _form_alliance(s, a, b):
-    if b not in s["countries"] or a == b:
+    independent = _independent_countries(s)
+    if b not in independent or a not in independent or a == b:
         return
     if _active_war_between(s, a, b):
         _event(s, "diplomacy", f"{a} could not form an alliance with {b} while they are at war.")
@@ -75,7 +88,8 @@ def _break_alliance(s, a, b):
         _event(s, "betrayal", f"{a} withdrew from its alliance with {b}.")
 
 def _start_war(s, attacker, defender):
-    if defender not in s["countries"] or attacker == defender:
+    independent = _independent_countries(s)
+    if defender not in independent or attacker not in independent or attacker == defender:
         return
     if _active_war_between(s, attacker, defender):
         return
@@ -107,20 +121,36 @@ def _start_war(s, attacker, defender):
             s["wars"][wid]["participants"].append(ally)
             _event(s, "war", f"{ally} joined {attacker}'s side in war #{wid}.")
 
-def _finish_war(s, w, winner, reason):
+def _finish_war(s, w, winner, reason, annex=False):
     w["status"] = "ended"
     w["winner"] = winner
     w["ended"] = s["turn"]
     loser_side = w["side_b"] if winner == "side_a" else w["side_a"]
     winner_side = w["side_a"] if winner == "side_a" else w["side_b"]
+    ownership = _ensure_sovereignty(s)
     for n in winner_side:
         s["countries"][n]["stability"] = clamp(s["countries"][n]["stability"] + 2)
         s["countries"][n]["gdp"] = round(s["countries"][n]["gdp"] * 1.01, 3)
     for n in loser_side:
         s["countries"][n]["stability"] = clamp(s["countries"][n]["stability"] - 4)
         s["countries"][n]["gdp"] = round(max(.05, s["countries"][n]["gdp"] * .97), 3)
+    captured = []
+    if annex and winner_side:
+        annexer = w.get("attacker") if w.get("attacker") in winner_side else winner_side[0]
+        for defeated in loser_side:
+            if defeated in s["countries"] and ownership.get(defeated, defeated) == defeated:
+                ownership[defeated] = annexer
+                captured.append(defeated)
+                _event(s, "territory", f"{annexer} annexed {defeated}. Its territory is now under {annexer}'s control.")
+                for ally in list(s.get("alliances", {}).get(defeated, [])):
+                    if defeated in s.get("alliances", {}).get(ally, []):
+                        s["alliances"][ally].remove(defeated)
+                s.get("alliances", {}).pop(defeated, None)
+        w["annexed_territories"] = captured
+        w["annexing_country"] = annexer if captured else None
     names = ", ".join(winner_side)
-    _event(s, "peace", f"War #{w['id']} ended. Winning side: {names}. {reason}")
+    result = f" Territories annexed: {', '.join(captured)}." if captured else ""
+    _event(s, "peace", f"War #{w['id']} ended. Winning side: {names}. {reason}{result}")
 
 def _progress_wars(s):
     for w in list(s.get("wars", {}).values()):
@@ -142,18 +172,32 @@ def _progress_wars(s):
             c["military"] = clamp(c["military"] - random.uniform(.2, 1.0))
             c["stability"] = clamp(c["stability"] - random.uniform(.1, .7))
             c["gdp"] = round(max(.05, c["gdp"] * random.uniform(.992, .998)), 3)
-        if w["progress"] >= 100:
-            _finish_war(s, w, "side_a", "The strategic contest reached a decisive outcome.")
+        def side_condition(side):
+            if not side:
+                return 0
+            return sum((s["countries"][n]["stability"] * .45 +
+                        s["countries"][n]["military"] * .55) for n in side) / len(side)
+        a_condition, b_condition = side_condition(w["side_a"]), side_condition(w["side_b"])
+        if a_condition < 25 and b_condition > a_condition * 1.35:
+            _finish_war(s, w, "side_b", "The opposing side capitulated after its game stability and readiness collapsed.", annex=True)
+        elif b_condition < 25 and a_condition > b_condition * 1.35:
+            _finish_war(s, w, "side_a", "The opposing side capitulated after its game stability and readiness collapsed.", annex=True)
+        elif w["progress"] >= 100:
+            _finish_war(s, w, "side_a", "The strategic contest reached a decisive outcome.", annex=True)
         elif w["progress"] <= 0:
-            _finish_war(s, w, "side_b", "The strategic contest reached a decisive outcome.")
+            _finish_war(s, w, "side_b", "The strategic contest reached a decisive outcome.", annex=True)
         elif s["turn"] - w["started"] >= 12:
             winner = "side_a" if w["score"] >= 0 else "side_b"
             _finish_war(s, w, winner, "The parties accepted an armistice after a prolonged conflict.")
 
 def apply_action(s, country, action, target=None, rationale=""):
     cs, rel = s["countries"], s["relations"]
+    independent = _independent_countries(s)
+    if country not in independent:
+        _event(s, "politics", f"{country} cannot issue independent decisions because its territory is controlled by {s['sovereignty'].get(country, country)}.")
+        return
     c = cs[country]
-    valid = target in cs and target != country
+    valid = target in independent and target != country
 
     if action == "invest_economy":
         c["gdp"] = round(c["gdp"] * 1.012 + .015, 3)
@@ -217,7 +261,10 @@ def apply_action(s, country, action, target=None, rationale=""):
     _event(s, kind, msg, rationale)
 
 def _passive(s):
-    for c in s["countries"].values():
+    independent = set(_independent_countries(s))
+    for name, c in s["countries"].items():
+        if name not in independent:
+            continue
         c["gdp"] = round(max(.05, c["gdp"] * (1 + (c["tech"] - 50) / 10000)), 3)
         c["stability"] = clamp(c["stability"] + (.12 if c["gdp"] > 1 else -.04)
                                - max(0, 50 - c["stability"]) * .006)
@@ -228,11 +275,12 @@ def _passive(s):
 def advance_turn(state, providers=None):
     state.setdefault("alliances", {n: [] for n in state["countries"]})
     state.setdefault("wars", {})
+    _ensure_sovereignty(state)
     state["turn"] += 1
     snap = copy.deepcopy(state)
     decisions = []
     providers = providers or {}
-    for name in snap["countries"]:
+    for name in _independent_countries(snap):
         cfg = providers.get(name, {})
         d, p = choose_action(name, snap, cfg.get("provider", "Fallback"), cfg.get("model"))
         decisions.append((name, d, p))
@@ -245,11 +293,13 @@ def advance_turn(state, providers=None):
     state["history"].append({
         "turn": state["turn"],
         "countries": copy.deepcopy(state["countries"]),
-        "wars": copy.deepcopy(state["wars"])
+        "wars": copy.deepcopy(state["wars"]),
+        "sovereignty": copy.deepcopy(state["sovereignty"])
     })
     return state
 
 def player_intervention(state, country, action, target=None):
+    _ensure_sovereignty(state)
     apply_action(state, country, action, target, "Player intervention.")
     _event(state, "player", f"PLAYER INTERVENTION: ordered {country} to {action.replace('_', ' ')}.")
     return state
