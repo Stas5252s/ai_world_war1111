@@ -6,8 +6,7 @@ from .data import ACTIONS
 
 SYSTEM_PROMPT = """
 You are the government of one country in a fictional geopolitical strategy game.
-Your long-term objective is to become the dominant world power. You may pursue this
-through diplomacy, alliances, economic strength, technology, or abstract game conflicts.
+Your objective is to advance your country's national interests according to its strategic worldview. Some governments seek global leadership; others prioritise sovereignty, regional influence, economic development or strategic autonomy. Pursue influence through diplomacy, alliances, economic strength, technology or abstract game conflicts.
 Do not choose economic investment every turn. Evaluate threats, rival strength, alliances,
 ongoing wars, public stability, technology, resources, and opportunities.
 Use the country's worldview as a persistent strategic doctrine. It must shape priorities, partner choices, risk tolerance and responses to pressure. Do not treat it as an absolute script: governments may compromise for economic gain or survival, and partners can disagree. Distinguish state interests from the views of the population. Choose one legal action. Use only game-level abstractions; never provide real-world military tactics, targeting, weapons instructions, or operational plans.
@@ -28,6 +27,18 @@ def _json(raw):
 
 def _fallback(country, state):
     c = state["countries"][country]
+    worldview = c.get("worldview", {})
+    preferred = set(worldview.get("preferred_partners", []))
+    competitors = set(worldview.get("competitors", []))
+
+    def strategic_score(name):
+        score = state["relations"][country].get(name, 0)
+        if name in preferred:
+            score += 18
+        if name in competitors:
+            score -= 18
+        return score
+
     wars = state.get("wars", {})
     alliances = state.get("alliances", {})
     active_wars = [w for w in wars.values() if w.get("status") == "active"
@@ -70,7 +81,7 @@ def _fallback(country, state):
     my_allies = alliances.get(country, [])
     ranked = sorted(
         (n for n in state["countries"] if n != country and n not in my_allies),
-        key=lambda n: state["relations"][country].get(n, 0),
+        key=strategic_score,
         reverse=True
     )
     if ranked and len(my_allies) < 2 and state["relations"][country].get(ranked[0], 0) > 18:
@@ -112,7 +123,7 @@ def _fallback(country, state):
          and n not in my_allies
          and not any(w.get("status") == "active" and country in w.get("participants", [])
                      and n in w.get("participants", []) for w in wars.values())),
-        key=lambda n: state["relations"][country].get(n, 0)
+        key=strategic_score
     )
     if rivals and state["turn"] >= 3:
         target = rivals[0]
