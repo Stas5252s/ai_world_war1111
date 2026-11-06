@@ -145,6 +145,7 @@ def _start_war(s, attacker, defender):
     s["relations"][attacker][defender] = clamp(s["relations"][attacker][defender] - 35, -100, 100)
     s["relations"][defender][attacker] = clamp(s["relations"][defender][attacker] - 35, -100, 100)
     _event(s, "war", f"War #{wid} began: {attacker} vs {defender}.")
+    _event(s, "economy", f"War #{wid} is disrupting trade and production while raising military expenditure for both sides.")
 
 
     for guarantee in s.get("guarantees", []):
@@ -175,11 +176,19 @@ def _finish_war(s, w, winner, reason, annex=False):
     winner_side = w["side_a"] if winner == "side_a" else w["side_b"]
     ownership = _ensure_sovereignty(s)
     for n in winner_side:
-        s["countries"][n]["stability"] = clamp(s["countries"][n]["stability"] + 2)
-        s["countries"][n]["gdp"] = round(s["countries"][n]["gdp"] * 1.01, 6)
+        c = s["countries"][n]
+        c["stability"] = clamp(c["stability"] + 2)
+        c["gdp"] = round(c["gdp"] * 1.01, 6)
+        c["production"] = clamp(c.get("production", 50) - 1)
+        c["debt"] = c.get("debt", 0) + c["gdp"] * 2
     for n in loser_side:
-        s["countries"][n]["stability"] = clamp(s["countries"][n]["stability"] - 4)
-        s["countries"][n]["gdp"] = round(max(.00001, s["countries"][n]["gdp"] * .97), 6)
+        c = s["countries"][n]
+        c["stability"] = clamp(c["stability"] - 4)
+        c["gdp"] = round(max(.00001, c["gdp"] * .97), 6)
+        c["production"] = clamp(c.get("production", 50) - 4)
+        c["debt"] = c.get("debt", 0) + c["gdp"] * 10
+        c["unemployment"] = min(45, c.get("unemployment", 7) + 1.5)
+        c["inflation"] = min(35, c.get("inflation", 3) + 1.2)
     captured = []
     if annex and winner_side:
         annexer = w.get("attacker") if w.get("attacker") in winner_side else winner_side[0]
@@ -199,6 +208,7 @@ def _finish_war(s, w, winner, reason, annex=False):
         w["annexing_country"] = annexer if captured else None
     names = ", ".join(winner_side)
     result = f" Territories annexed: {', '.join(captured)}." if captured else ""
+    _event(s, "economy", f"War #{w['id']} left the defeated side with damaged production, higher debt and unemployment. Recovery will take multiple turns.")
     _event(s, "peace", f"War #{w['id']} ended. Winning side: {names}. {reason}{result}")
 
 def _progress_wars(s):
