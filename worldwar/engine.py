@@ -170,6 +170,38 @@ def _progress_wars(s):
         w["score"] = clamp(w.get("score", 0) + swing, -100, 100)
         w["progress"] = round(50 + w["score"] / 2, 1)
         w["last_update"] = s["turn"]
+
+        # A sustained advantage moves the fictional front line during the war.
+        # Ownership can change in either direction as the balance of the conflict shifts.
+        ownership = _ensure_sovereignty(s)
+        last_shift = int(w.get("last_territory_change", w.get("started", 0)))
+        if abs(w["score"]) >= 18 and s["turn"] - last_shift >= 2:
+            winning_side = w["side_a"] if w["score"] > 0 else w["side_b"]
+            losing_side = w["side_b"] if w["score"] > 0 else w["side_a"]
+            enemy_territories = [
+                territory for territory, controller in ownership.items()
+                if controller in losing_side
+            ]
+            if enemy_territories and winning_side:
+                territory = random.choice(enemy_territories)
+                controller = max(
+                    winning_side,
+                    key=lambda name: s["countries"][name]["military"]
+                )
+                previous_controller = ownership[territory]
+                ownership[territory] = controller
+                w["last_territory_change"] = s["turn"]
+                change = {
+                    "turn": s["turn"], "territory": territory,
+                    "from": previous_controller, "to": controller
+                }
+                w.setdefault("territory_changes", []).append(change)
+                w["territory_changes"] = w["territory_changes"][-30:]
+                _event(
+                    s, "territory",
+                    f"{territory} changed control: {controller} captured it from {previous_controller} as the front line shifted."
+                )
+
         for n in w["participants"]:
             c = s["countries"][n]
             c["military"] = clamp(c["military"] - random.uniform(.2, 1.0))
