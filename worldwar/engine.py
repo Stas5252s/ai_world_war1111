@@ -251,7 +251,6 @@ def _progress_wars(s):
             c = s["countries"][n]
             c["military"] = clamp(c["military"] - random.uniform(.2, 1.0))
             c["stability"] = clamp(c["stability"] - random.uniform(.1, .7))
-            c["gdp"] = round(max(.05, c["gdp"] * random.uniform(.992, .998)), 3)
         def side_condition(side):
             if not side:
                 return 0
@@ -280,21 +279,24 @@ def apply_action(s, country, action, target=None, rationale=""):
     valid = target in independent and target != country
 
     if action == "invest_economy":
-        c["gdp"] = round(c["gdp"] * 1.012 + .015, 3)
+        c["production"] = clamp(c.get("production", 50) + 2.0)
+        c["treasury"] = max(0, c.get("treasury", 0) - c["gdp"] * 5)
         c["stability"] = clamp(c["stability"] + .3)
-        msg, kind = f"{country} invested in economic development.", "economy"
+        msg, kind = f"{country} invested in infrastructure and productive capacity.", "economy"
     elif action == "research":
         c["tech"] = clamp(c["tech"] + 2)
-        c["gdp"] = round(c["gdp"] * 1.003, 3)
-        msg, kind = f"{country} funded a research programme.", "technology"
+        c["production"] = clamp(c.get("production", 50) + .5)
+        c["treasury"] = max(0, c.get("treasury", 0) - c["gdp"] * 3)
+        msg, kind = f"{country} funded research and development.", "technology"
     elif action == "social_program":
         c["stability"] = clamp(c["stability"] + 4)
-        c["gdp"] = round(max(.05, c["gdp"] * .997), 3)
-        msg, kind = f"{country} launched a public support programme.", "politics"
+        c["treasury"] = max(0, c.get("treasury", 0) - c["gdp"] * 4)
+        msg, kind = f"{country} funded public services and social support.", "politics"
     elif action == "mobilize":
         c["military"] = clamp(c["military"] + 5)
-        c["gdp"] = round(max(.05, c["gdp"] * .997), 3)
-        msg, kind = f"{country} increased abstract readiness.", "military"
+        c["military_spending"] = min(.15, c.get("military_spending", .035) + .008)
+        c["treasury"] = max(0, c.get("treasury", 0) - c["gdp"] * 10)
+        msg, kind = f"{country} increased readiness and military spending.", "military"
 
     elif action == "create_bloc":
         _create_bloc(s, country)
@@ -338,13 +340,14 @@ def apply_action(s, country, action, target=None, rationale=""):
             pair = sorted([country, target])
             if not any(sorted(x.get("countries", [])) == pair for x in s.setdefault("trade_agreements", [])):
                 s["trade_agreements"].append({"countries": pair, "signed": s["turn"]})
-            c["gdp"] = round(c["gdp"] * 1.008, 3)
-            cs[target]["gdp"] = round(cs[target]["gdp"] * 1.006, 3)
+            c["trade"] = c.get("trade", 0) * 1.04
+            cs[target]["trade"] = cs[target].get("trade", 0) * 1.04
             msg, kind = f"{country} and {target} signed a continuing trade agreement.", "economy"
         elif action == "sanction":
             rel[country][target] = clamp(rel[country][target] - 12, -100, 100)
-            cs[target]["gdp"] = round(max(.05, cs[target]["gdp"] * .992), 3)
-            c["gdp"] = round(max(.05, c["gdp"] * .998), 3)
+            cs[target]["trade"] = cs[target].get("trade", 0) * .94
+            cs[target]["production"] = clamp(cs[target].get("production", 50) - .4)
+            c["trade"] = c.get("trade", 0) * .99
             msg, kind = f"{country} imposed economic restrictions on {target}.", "economy"
         else:
             rel[country][target] = clamp(rel[country][target] + 18, -100, 100)
@@ -375,22 +378,90 @@ def apply_action(s, country, action, target=None, rationale=""):
 
     _event(s, kind, msg, rationale)
 
-def _passive(s):
+def _economy_step(s):
+    """Advance one year. GDP is USD trillions; fiscal/trade flows are USD billions."""
+    active_wars = {}
+    for war in s.get("wars", {}).values():
+        if war.get("status") == "active":
+            for name in war.get("participants", []):
+                active_wars[name] = active_wars.get(name, 0) + 1
+
+    trade_partners = {name: set() for name in s["countries"]}
     for agreement in s.get("trade_agreements", []):
-        a, b = agreement.get("countries", [None, None])
-        if a in s["countries"] and b in s["countries"]:
-            s["countries"][a]["gdp"] = round(s["countries"][a]["gdp"] * 1.0015, 3)
-            s["countries"][b]["gdp"] = round(s["countries"][b]["gdp"] * 1.0015, 3)
+        pair = agreement.get("countries", [])
+        if len(pair) == 2 and all(n in trade_partners for n in pair):
+            trade_partners[pair[0]].add(pair[1])
+            trade_partners[pair[1]].add(pair[0])
+
     independent = set(_independent_countries(s))
     for name, c in s["countries"].items():
+        gdp = max(0.00001, float(c.get("gdp", 0.01)))
+        c.setdefault("production", 45.0)
+        c.setdefault("budget", gdp * 210)
+        c.setdefault("budget_balance", 0.0)
+        c.setdefault("treasury", gdp * 80)
+        c.setdefault("debt", gdp * 350)
+        c.setdefault("trade", gdp * 350)
+        c.setdefault("trade_balance", 0.0)
+        c.setdefault("resource_stock", 60.0)
+        c.setdefault("inflation", 3.0)
+        c.setdefault("unemployment", 7.0)
+        c.setdefault("military_spending", 0.035)
+
+        war_count = active_wars.get(name, 0)
+        war_cost = min(0.035, war_count * 0.018)
+        trade_bonus = min(0.012, len(trade_partners[name]) * 0.0015)
+        resource_factor = (c["resource_stock"] - 50) / 10000
+        debt_ratio = c["debt"] / max(gdp * 1000, 1)
+        political_factor = (c["stability"] - 50) / 10000
+        technology_factor = (c["tech"] - 50) / 8000
+        production_factor = (c["production"] - 50) / 9000
+        growth = 0.006 + political_factor + technology_factor + production_factor + resource_factor + trade_bonus - war_cost - max(0, debt_ratio - 0.8) * 0.004
         if name not in independent:
-            continue
-        c["gdp"] = round(max(.05, c["gdp"] * (1 + (c["tech"] - 50) / 10000)), 3)
-        c["stability"] = clamp(c["stability"] + (.12 if c["gdp"] > 1 else -.04)
-                               - max(0, 50 - c["stability"]) * .006)
-        c["population"] = round(c["population"] * (1 + .0008 + (c["stability"] - 50) / 100000), 2)
-        c["resources"] = clamp(c["resources"] - .05 + (.10 if c["gdp"] < 1 else 0))
-        c["tech"] = clamp(c["tech"] + .05)
+            growth -= 0.002
+        growth = max(-0.06, min(0.045, growth))
+        c["gdp"] = round(max(0.00001, gdp * (1 + growth)), 6)
+
+        production_change = (c["tech"] - 50) * 0.006 + (c["resources"] - 50) * 0.003
+        production_change += trade_bonus * 80 - (1.25 * war_count)
+        if c["resource_stock"] < 15:
+            production_change -= 0.8
+        c["production"] = round(clamp(c["production"] + production_change, 1, 100), 2)
+        c["resource_stock"] = round(clamp(
+            c["resource_stock"] + (c["resources"] - 50) * 0.012
+            - c["production"] * 0.025 - war_count * 0.35, 0, 100
+        ), 2)
+
+        population_growth = 0.008 + (c["stability"] - 50) / 12000 - war_count * 0.003
+        c["population"] = round(max(0.001, c["population"] * (1 + max(-0.015, min(0.025, population_growth)))), 3)
+        c["tech"] = clamp(c["tech"] + 0.08 + c["production"] / 2000)
+        c["stability"] = clamp(c["stability"] + (0.08 if growth > 0 else -0.12) - war_count * 0.25)
+
+        gdp_billions = c["gdp"] * 1000
+        tax_rate = 0.16 + c["tech"] / 1000
+        revenue = gdp_billions * tax_rate
+        military_rate = c.get("military_spending", 0.035) + war_cost
+        military_expense = gdp_billions * military_rate
+        public_expense = gdp_billions * (0.145 + max(0, 55 - c["stability"]) / 2000)
+        interest = c["debt"] * 0.035
+        balance = revenue - military_expense - public_expense - interest
+        c["budget"] = round(revenue, 2)
+        c["budget_balance"] = round(balance, 2)
+        c["treasury"] = round(max(0, c["treasury"] + balance), 2)
+        if balance < 0:
+            c["debt"] = round(c["debt"] + abs(balance), 2)
+        else:
+            repayment = min(c["debt"], balance * 0.35)
+            c["debt"] = round(max(0, c["debt"] - repayment), 2)
+            c["treasury"] = round(max(0, c["treasury"] - repayment), 2)
+
+        openness = 0.22 + c["tech"] / 250 + len(trade_partners[name]) * 0.012
+        c["trade"] = round(gdp_billions * openness * (1 - min(0.25, war_count * 0.08)), 2)
+        c["trade_balance"] = round(c["trade"] * ((c["resources"] - 50) / 250), 2)
+        c["inflation"] = round(max(0.2, min(35, c["inflation"] + war_count * 0.7 + max(0, -balance / max(gdp_billions, 1) * 100) * 0.08 - 0.08)), 2)
+        c["unemployment"] = round(max(1, min(45, c["unemployment"] + war_count * 0.45 - max(0, growth) * 18 - (c["production"] - 50) * 0.006)), 2)
+
+
 
 def advance_turn(state, providers=None):
     state.setdefault("alliances", {n: [] for n in state["countries"]})
@@ -420,7 +491,7 @@ def advance_turn(state, providers=None):
         if state["events"]:
             state["events"][-1]["text"] += f" [AI: {p}]"
     _progress_wars(state)
-    _passive(state)
+    _economy_step(state)
     state["history"].append({
         "turn": state["turn"],
         "countries": copy.deepcopy(state["countries"]),
