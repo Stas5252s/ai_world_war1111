@@ -1,9 +1,9 @@
-# 2024 country baselines. Population and GDP: World Bank WDI via iliyaj/country-data (MIT repository); capitals/coordinates: REST Countries via same repository.
+# 2024 country baselines. Population and GDP: World Bank WDI via iliyaj/country-data (MIT repository); capitals/coordinates: REST Countries via same repository. GDP values missing from WDI are approximate public estimates.
 COUNTRY_SEEDS = {
   "Afghanistan": {
     "iso": "AFG",
     "population": 42.647,
-    "gdp": 0.076765,
+    "gdp": 0.01715,
     "capital": "Kabul",
     "lat": 34.52,
     "lon": 69.18
@@ -147,7 +147,7 @@ COUNTRY_SEEDS = {
   "Bhutan": {
     "iso": "BTN",
     "population": 0.792,
-    "gdp": 0.001425,
+    "gdp": 0.003,
     "capital": "Thimphu",
     "lat": 27.47,
     "lon": 89.63
@@ -331,7 +331,7 @@ COUNTRY_SEEDS = {
   "Cuba": {
     "iso": "CUB",
     "population": 10.98,
-    "gdp": 0.019764,
+    "gdp": 0.10735,
     "capital": "Havana",
     "lat": 23.12,
     "lon": -82.35
@@ -435,7 +435,7 @@ COUNTRY_SEEDS = {
   "Eritrea": {
     "iso": "ERI",
     "population": 3.536,
-    "gdp": 0.006364,
+    "gdp": 0.00207,
     "capital": "Asmara",
     "lat": 15.33,
     "lon": 38.93
@@ -747,7 +747,7 @@ COUNTRY_SEEDS = {
   "Lebanon": {
     "iso": "LBN",
     "population": 5.806,
-    "gdp": 0.010451,
+    "gdp": 0.02,
     "capital": "Beirut",
     "lat": 33.87,
     "lon": 35.5
@@ -779,7 +779,7 @@ COUNTRY_SEEDS = {
   "Liechtenstein": {
     "iso": "LIE",
     "population": 0.04,
-    "gdp": 0.001,
+    "gdp": 0.0085,
     "capital": "Vaduz",
     "lat": 47.13,
     "lon": 9.52
@@ -1011,7 +1011,7 @@ COUNTRY_SEEDS = {
   "North Korea": {
     "iso": "PRK",
     "population": 26.499,
-    "gdp": 0.047698,
+    "gdp": 0.03,
     "capital": "Pyongyang",
     "lat": 39.02,
     "lon": 125.75
@@ -1051,7 +1051,7 @@ COUNTRY_SEEDS = {
   "Palau": {
     "iso": "PLW",
     "population": 0.018,
-    "gdp": 0.001,
+    "gdp": 0.00032,
     "capital": "Ngerulmud",
     "lat": 7.5,
     "lon": 134.62
@@ -1187,7 +1187,7 @@ COUNTRY_SEEDS = {
   "San Marino": {
     "iso": "SMR",
     "population": 0.034,
-    "gdp": 0.001,
+    "gdp": 0.002,
     "capital": "City of San Marino",
     "lat": 43.94,
     "lon": 12.45
@@ -1299,7 +1299,7 @@ COUNTRY_SEEDS = {
   "South Sudan": {
     "iso": "SSD",
     "population": 11.943,
-    "gdp": 0.021498,
+    "gdp": 0.0065,
     "capital": "Juba",
     "lat": 4.85,
     "lon": 31.62
@@ -1355,7 +1355,7 @@ COUNTRY_SEEDS = {
   "Syria": {
     "iso": "SYR",
     "population": 24.673,
-    "gdp": 0.044411,
+    "gdp": 0.02,
     "capital": "Damascus",
     "lat": 33.5,
     "lon": 36.3
@@ -1403,7 +1403,7 @@ COUNTRY_SEEDS = {
   "Tonga": {
     "iso": "TON",
     "population": 0.104,
-    "gdp": 0.001,
+    "gdp": 0.00055,
     "capital": "Nuku'alofa",
     "lat": -21.13,
     "lon": -175.2
@@ -1443,7 +1443,7 @@ COUNTRY_SEEDS = {
   "Tuvalu": {
     "iso": "TUV",
     "population": 0.01,
-    "gdp": 0.001,
+    "gdp": 0.00007,
     "capital": "Funafuti",
     "lat": -8.52,
     "lon": 179.22
@@ -1514,8 +1514,8 @@ COUNTRY_SEEDS = {
   },
   "Vatican City": {
     "iso": "VAT",
-    "population": 0.5,
-    "gdp": 0.001,
+    "population": 0.001,
+    "gdp": 0.0005,
     "capital": "Vatican City",
     "lat": 41.9,
     "lon": 12.45
@@ -1539,7 +1539,7 @@ COUNTRY_SEEDS = {
   "Yemen": {
     "iso": "YEM",
     "population": 40.583,
-    "gdp": 0.07305,
+    "gdp": 0.021,
     "capital": "Sana'a",
     "lat": 15.37,
     "lon": 44.19
