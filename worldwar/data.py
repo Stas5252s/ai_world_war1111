@@ -1,7 +1,7 @@
 
 """Synthetic game-balance values, not live national statistics."""
 
-COUNTRIES = {
+_FEATURED_COUNTRIES = {
     "India": {
         "iso": "IND", "population": 1450, "gdp": 4.0,
         "stability": 68, "tech": 61, "military": 70, "resources": 58,
@@ -148,6 +148,54 @@ COUNTRIES = {
         "style": "resource-rich, alliance-oriented"
     }
 }
+
+
+ 
+from .country_seed import COUNTRY_SEEDS
+
+def _clamp(value, low=0, high=100):
+    return max(low, min(high, value))
+
+COUNTRIES = {}
+for _name, _seed in COUNTRY_SEEDS.items():
+    _pc = (_seed["gdp"] * 1_000_000_000_000) / max(1, _seed["population"] * 1_000_000)
+    _income = max(0, min(1, (_pc - 900) / 65000))
+    _code_score = sum(ord(ch) for ch in _seed["iso"])
+    _featured = _FEATURED_COUNTRIES.get(_name, {})
+    _profile = {
+        "iso": _seed["iso"],
+        "population": _seed["population"],
+        "gdp": _seed["gdp"],
+        "stability": round(42 + 38 * _income, 1),
+        "tech": round(28 + 66 * _income, 1),
+        "military": round(25 + 48 * _income + (_code_score % 17), 1),
+        "resources": round(25 + (_code_score * 7 % 70), 1),
+        "style": "balanced, national-development focused",
+        "capital": _seed["capital"],
+        "lat": _seed["lat"],
+        "lon": _seed["lon"],
+        "production": round(30 + 60 * _income, 1),
+        "budget": round(_seed["gdp"] * 1000 * 0.21, 2),
+        "budget_balance": round(_seed["gdp"] * 1000 * 0.012, 2),
+        "treasury": round(_seed["gdp"] * 1000 * 0.08, 2),
+        "debt": round(_seed["gdp"] * 1000 * (0.25 + (1 - _income) * 0.25), 2),
+        "trade": round(_seed["gdp"] * 1000 * (0.25 + _income * 0.35), 2),
+        "trade_balance": 0.0,
+        "resource_stock": round(45 + (_code_score * 11 % 55), 1),
+        "inflation": round(2.0 + (1 - _income) * 5.0, 2),
+        "unemployment": round(4.0 + (1 - _income) * 10.0, 2),
+        "military_spending": 0.035
+    }
+    _profile.update({k: v for k, v in _featured.items()
+                    if k not in ("population", "gdp", "iso")})
+    _profile["iso"] = _seed["iso"]
+    _profile["population"] = _seed["population"]
+    _profile["gdp"] = _seed["gdp"]
+    _profile["capital"] = _seed["capital"]
+    _profile["lat"] = _seed["lat"]
+    _profile["lon"] = _seed["lon"]
+    COUNTRIES[_name] = _profile
+
 
 ACTIONS = [
     "invest_economy", "research", "social_program", "diplomacy", "trade",
