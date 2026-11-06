@@ -141,6 +141,9 @@ def _finish_war(s, w, winner, reason, annex=False):
             if defeated in s["countries"] and ownership.get(defeated, defeated) == defeated:
                 ownership[defeated] = annexer
                 captured.append(defeated)
+                for territory, controller in list(ownership.items()):
+                    if controller == defeated:
+                        ownership[territory] = annexer
                 _event(s, "territory", f"{annexer} annexed {defeated}. Its territory is now under {annexer}'s control.")
                 for ally in list(s.get("alliances", {}).get(defeated, [])):
                     if defeated in s.get("alliances", {}).get(ally, []):
