@@ -150,6 +150,563 @@ _FEATURED_COUNTRIES = {
 }
 
 
+
+_WORLDVIEWS = {
+    "United States": {
+        "outlook": "Maintain a rules-based international order that preserves US leadership and freedom of navigation.",
+        "priorities": [
+            "alliances",
+            "technology leadership",
+            "financial influence",
+            "open trade",
+            "deterrence"
+        ],
+        "red_lines": [
+            "major threats to treaty allies",
+            "hostile domination of key regions"
+        ],
+        "preferred_partners": [
+            "Canada",
+            "United Kingdom",
+            "Japan",
+            "South Korea",
+            "Australia",
+            "Germany",
+            "France",
+            "Poland"
+        ],
+        "competitors": [
+            "China",
+            "Russia",
+            "Iran"
+        ],
+        "posture": "Global leadership through alliances, institutions and innovation."
+    },
+    "China": {
+        "outlook": "Build a more multipolar order, protect sovereignty and expand China's economic and diplomatic weight.",
+        "priorities": [
+            "industrial capacity",
+            "trade corridors",
+            "technology independence",
+            "regional influence",
+            "energy security"
+        ],
+        "red_lines": [
+            "foreign-backed separatism",
+            "containment near its borders"
+        ],
+        "preferred_partners": [
+            "Russia",
+            "Pakistan",
+            "Iran"
+        ],
+        "competitors": [
+            "United States",
+            "India",
+            "Japan"
+        ],
+        "posture": "Long-term economic statecraft, regional leverage and strategic patience."
+    },
+    "Russia": {
+        "outlook": "Seek recognition as an independent great power and a security buffer in its near abroad.",
+        "priorities": [
+            "regime security",
+            "strategic depth",
+            "energy exports",
+            "military deterrence",
+            "great-power status"
+        ],
+        "red_lines": [
+            "hostile military infrastructure near its borders",
+            "loss of influence in its near abroad"
+        ],
+        "preferred_partners": [
+            "China",
+            "Belarus",
+            "Iran"
+        ],
+        "competitors": [
+            "United States",
+            "United Kingdom",
+            "Poland",
+            "Ukraine"
+        ],
+        "posture": "Security-first and focused on preserving regional influence."
+    },
+    "India": {
+        "outlook": "Preserve strategic autonomy while becoming a leading power in a multipolar world.",
+        "priorities": [
+            "economic growth",
+            "technology",
+            "border security",
+            "Indian Ocean influence",
+            "diplomatic independence"
+        ],
+        "red_lines": [
+            "cross-border security threats",
+            "strategic encirclement"
+        ],
+        "preferred_partners": [
+            "United States",
+            "France",
+            "Japan",
+            "Australia"
+        ],
+        "competitors": [
+            "China",
+            "Pakistan"
+        ],
+        "posture": "Multi-alignment, pragmatic partnerships and regional deterrence."
+    },
+    "United Kingdom": {
+        "outlook": "Preserve an influential global role through alliances, finance, diplomacy and maritime security.",
+        "priorities": [
+            "NATO cohesion",
+            "financial services",
+            "open sea lanes",
+            "technology",
+            "European security"
+        ],
+        "red_lines": [
+            "threats to close allies",
+            "hostile domination of Europe"
+        ],
+        "preferred_partners": [
+            "United States",
+            "Canada",
+            "Australia",
+            "France",
+            "Germany",
+            "Poland",
+            "Japan"
+        ],
+        "competitors": [
+            "Russia",
+            "China"
+        ],
+        "posture": "Alliance-centred global engagement."
+    },
+    "France": {
+        "outlook": "Strengthen European sovereignty while retaining an independent global diplomatic and security role.",
+        "priorities": [
+            "European integration",
+            "strategic autonomy",
+            "defence industry",
+            "diplomatic influence",
+            "energy independence"
+        ],
+        "red_lines": [
+            "collapse of European security",
+            "loss of freedom of action"
+        ],
+        "preferred_partners": [
+            "Germany",
+            "Italy",
+            "United Kingdom",
+            "Poland",
+            "United States"
+        ],
+        "competitors": [
+            "Russia"
+        ],
+        "posture": "European leadership, diplomacy and selective independent action."
+    },
+    "Germany": {
+        "outlook": "Protect European stability and prosperity through integration, trade and collective security.",
+        "priorities": [
+            "EU cohesion",
+            "industrial competitiveness",
+            "export markets",
+            "energy security",
+            "NATO cooperation"
+        ],
+        "red_lines": [
+            "major instability in Europe",
+            "threats to allied security"
+        ],
+        "preferred_partners": [
+            "France",
+            "Poland",
+            "Netherlands",
+            "United States",
+            "United Kingdom"
+        ],
+        "competitors": [
+            "Russia"
+        ],
+        "posture": "Economic interdependence, multilateral diplomacy and collective defence."
+    },
+    "Poland": {
+        "outlook": "Strengthen the eastern flank of Europe and ensure no hostile power can dominate the region.",
+        "priorities": [
+            "territorial defence",
+            "NATO",
+            "EU influence",
+            "regional infrastructure",
+            "energy diversification"
+        ],
+        "red_lines": [
+            "Russian coercion in Eastern Europe",
+            "weakening of allied guarantees"
+        ],
+        "preferred_partners": [
+            "United States",
+            "United Kingdom",
+            "Germany",
+            "France",
+            "Ukraine",
+            "Lithuania"
+        ],
+        "competitors": [
+            "Russia"
+        ],
+        "posture": "Hard security guarantees and close regional alliances."
+    },
+    "Japan": {
+        "outlook": "Protect a stable Indo-Pacific order, secure trade routes and prevent coercive regional dominance.",
+        "priorities": [
+            "maritime security",
+            "advanced technology",
+            "trade",
+            "energy imports",
+            "US alliance"
+        ],
+        "red_lines": [
+            "coercion around nearby sea lanes",
+            "regional arms imbalance"
+        ],
+        "preferred_partners": [
+            "United States",
+            "Australia",
+            "South Korea",
+            "India",
+            "United Kingdom"
+        ],
+        "competitors": [
+            "China",
+            "North Korea",
+            "Russia"
+        ],
+        "posture": "Defensive security, economic diplomacy and close partnerships."
+    },
+    "South Korea": {
+        "outlook": "Deter threats on the peninsula while maintaining export-led growth and regional stability.",
+        "priorities": [
+            "peninsula security",
+            "technology exports",
+            "US alliance",
+            "energy security",
+            "supply chains"
+        ],
+        "red_lines": [
+            "direct threats from North Korea",
+            "disruption of critical trade"
+        ],
+        "preferred_partners": [
+            "United States",
+            "Japan",
+            "Australia"
+        ],
+        "competitors": [
+            "North Korea"
+        ],
+        "posture": "Deterrence backed by trade and technology diplomacy."
+    },
+    "Turkey": {
+        "outlook": "Act as an autonomous regional power and avoid dependence on any single great-power bloc.",
+        "priorities": [
+            "regional influence",
+            "defence industry",
+            "trade corridors",
+            "energy transit",
+            "diplomatic leverage"
+        ],
+        "red_lines": [
+            "threats near its borders",
+            "exclusion from regional decisions"
+        ],
+        "preferred_partners": [
+            "Azerbaijan",
+            "Qatar",
+            "Pakistan"
+        ],
+        "competitors": [
+            "Greece",
+            "Syria"
+        ],
+        "posture": "Transactional diplomacy, strategic autonomy and regional balancing."
+    },
+    "Iran": {
+        "outlook": "Preserve regime security, resist external pressure and maintain strategic depth in its neighbourhood.",
+        "priorities": [
+            "sanctions resistance",
+            "regional networks",
+            "deterrence",
+            "energy exports",
+            "strategic autonomy"
+        ],
+        "red_lines": [
+            "direct threats to regime survival",
+            "foreign military pressure"
+        ],
+        "preferred_partners": [
+            "Russia",
+            "China"
+        ],
+        "competitors": [
+            "United States",
+            "Israel",
+            "Saudi Arabia"
+        ],
+        "posture": "Regional leverage and resistance to isolation."
+    },
+    "Saudi Arabia": {
+        "outlook": "Protect energy infrastructure while becoming a diversified investment and diplomatic hub.",
+        "priorities": [
+            "energy markets",
+            "economic diversification",
+            "regime stability",
+            "regional influence",
+            "foreign investment"
+        ],
+        "red_lines": [
+            "threats to energy infrastructure",
+            "regional isolation"
+        ],
+        "preferred_partners": [
+            "United States",
+            "United Kingdom",
+            "France",
+            "United Arab Emirates",
+            "Egypt"
+        ],
+        "competitors": [
+            "Iran"
+        ],
+        "posture": "Pragmatic balancing, energy diplomacy and investment-led influence."
+    },
+    "Pakistan": {
+        "outlook": "Prioritise national security and strategic balance in South Asia while maintaining external partnerships.",
+        "priorities": [
+            "border security",
+            "strategic deterrence",
+            "economic stability",
+            "regional connectivity"
+        ],
+        "red_lines": [
+            "major security pressure from India",
+            "loss of strategic autonomy"
+        ],
+        "preferred_partners": [
+            "China",
+            "Saudi Arabia",
+            "Turkey"
+        ],
+        "competitors": [
+            "India"
+        ],
+        "posture": "Security-first balancing and selected partnerships."
+    },
+    "Ukraine": {
+        "outlook": "Defend sovereignty and territorial integrity, secure durable guarantees and integrate with European institutions.",
+        "priorities": [
+            "sovereignty",
+            "security guarantees",
+            "European integration",
+            "reconstruction",
+            "defence resilience"
+        ],
+        "red_lines": [
+            "territorial aggression",
+            "forced loss of sovereignty",
+            "abandonment by security partners"
+        ],
+        "preferred_partners": [
+            "Poland",
+            "United Kingdom",
+            "United States",
+            "France",
+            "Germany",
+            "Canada",
+            "Lithuania"
+        ],
+        "competitors": [
+            "Russia"
+        ],
+        "posture": "Defensive resilience, alliance-building and international legal legitimacy."
+    },
+    "Canada": {
+        "outlook": "Support a stable rules-based order while protecting North American security and open trade.",
+        "priorities": [
+            "US partnership",
+            "Arctic security",
+            "critical minerals",
+            "trade",
+            "multilateral institutions"
+        ],
+        "red_lines": [
+            "threats to North American sovereignty",
+            "Arctic coercion"
+        ],
+        "preferred_partners": [
+            "United States",
+            "United Kingdom",
+            "France",
+            "Germany",
+            "Australia",
+            "Japan"
+        ],
+        "competitors": [
+            "Russia"
+        ],
+        "posture": "Multilateral diplomacy, alliance cooperation and resource-based influence."
+    },
+    "Australia": {
+        "outlook": "Maintain a secure Indo-Pacific balance and resilient trade links with regional partners.",
+        "priorities": [
+            "maritime security",
+            "US alliance",
+            "critical minerals",
+            "regional partnerships",
+            "trade diversification"
+        ],
+        "red_lines": [
+            "coercive regional hegemony",
+            "threats to sea lanes"
+        ],
+        "preferred_partners": [
+            "United States",
+            "Japan",
+            "United Kingdom",
+            "India",
+            "South Korea"
+        ],
+        "competitors": [
+            "China"
+        ],
+        "posture": "Alliance-backed deterrence and regional economic engagement."
+    },
+    "Brazil": {
+        "outlook": "Increase the voice of the Global South and preserve freedom to cooperate across rival blocs.",
+        "priorities": [
+            "strategic autonomy",
+            "agriculture",
+            "industrial development",
+            "regional leadership",
+            "climate diplomacy"
+        ],
+        "red_lines": [
+            "external domination of regional policy",
+            "trade isolation"
+        ],
+        "preferred_partners": [
+            "Argentina",
+            "Mexico",
+            "China",
+            "India",
+            "South Africa"
+        ],
+        "competitors": [],
+        "posture": "Non-alignment, multilateralism and pragmatic economic partnerships."
+    },
+    "Indonesia": {
+        "outlook": "Preserve ASEAN centrality and avoid being forced to choose between great-power camps.",
+        "priorities": [
+            "ASEAN cohesion",
+            "maritime sovereignty",
+            "trade",
+            "industrial upgrading",
+            "resource value chains"
+        ],
+        "red_lines": [
+            "violation of maritime sovereignty",
+            "regional bloc confrontation"
+        ],
+        "preferred_partners": [
+            "Malaysia",
+            "Singapore",
+            "Japan",
+            "Australia",
+            "India"
+        ],
+        "competitors": [],
+        "posture": "Non-alignment, regional consensus and pragmatic balancing."
+    },
+    "Israel": {
+        "outlook": "Ensure national security and preserve diplomatic and technological partnerships.",
+        "priorities": [
+            "security",
+            "technology",
+            "deterrence",
+            "trade",
+            "international partnerships"
+        ],
+        "red_lines": [
+            "direct existential threats",
+            "cross-border attacks"
+        ],
+        "preferred_partners": [
+            "United States",
+            "Germany",
+            "United Kingdom",
+            "France"
+        ],
+        "competitors": [
+            "Iran"
+        ],
+        "posture": "Security-first diplomacy and technology-driven influence."
+    },
+    "Egypt": {
+        "outlook": "Preserve national stability and Egypt's central role in Arab and African regional affairs.",
+        "priorities": [
+            "water security",
+            "Suez trade",
+            "regional stability",
+            "food security",
+            "investment"
+        ],
+        "red_lines": [
+            "threats to Nile water access",
+            "instability on borders",
+            "disruption of Suez traffic"
+        ],
+        "preferred_partners": [
+            "Saudi Arabia",
+            "United Arab Emirates",
+            "France",
+            "United States"
+        ],
+        "competitors": [
+            "Ethiopia"
+        ],
+        "posture": "Regional balancing and protection of strategic trade routes."
+    },
+    "United Arab Emirates": {
+        "outlook": "Build a secure, globally connected hub for finance, trade, logistics and technology.",
+        "priorities": [
+            "investment",
+            "trade corridors",
+            "energy",
+            "technology",
+            "regional security"
+        ],
+        "red_lines": [
+            "threats to shipping",
+            "regional instability"
+        ],
+        "preferred_partners": [
+            "Saudi Arabia",
+            "United States",
+            "India",
+            "France"
+        ],
+        "competitors": [
+            "Iran"
+        ],
+        "posture": "Commercial diplomacy, investment and flexible partnerships."
+    }
+}
+
  
 from .country_seed import COUNTRY_SEEDS
 
@@ -171,6 +728,7 @@ for _name, _seed in COUNTRY_SEEDS.items():
         "military": round(25 + 48 * _income + (_code_score % 17), 1),
         "resources": round(25 + (_code_score * 7 % 70), 1),
         "style": "balanced, national-development focused",
+        "worldview": _WORLDVIEWS.get(_name, {"outlook": "Prioritise sovereignty, national development and independent diplomatic choices.", "priorities": ["economic development", "security", "trade", "diplomatic autonomy"], "red_lines": ["direct threats to sovereignty", "severe economic coercion"], "preferred_partners": [], "competitors": [], "posture": "Pragmatic and development-oriented"}),
         "capital": _seed["capital"],
         "lat": _seed["lat"],
         "lon": _seed["lon"],
