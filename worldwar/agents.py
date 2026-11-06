@@ -80,9 +80,9 @@ def _fallback(country, state):
         other = state["countries"][target]
         own_power = c["military"] * .55 + c["tech"] * .25 + c["stability"] * .20
         other_power = other["military"] * .55 + other["tech"] * .25 + other["stability"] * .20
-        if (state["relations"][country].get(target, 0) < -28
-                and own_power >= other_power * .82
-                and c["stability"] > 38):
+        if (state["relations"][country].get(target, 0) < -20
+                and own_power >= other_power * .60
+                and c["stability"] > 32):
             return {"action": "declare_war", "target": target,
                     "rationale": "A long-running rivalry has escalated into an abstract strategic conflict."}
 
