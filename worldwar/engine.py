@@ -105,29 +105,87 @@ def _break_alliance(s, a, b):
         _event(s, "betrayal", f"{a} withdrew from its alliance with {b}.")
 
 
+def _normalise_blocs(s):
+    """Repair legacy or malformed bloc records without losing valid members."""
+    raw = s.get("blocs", {})
+    if not isinstance(raw, dict):
+        raw = {}
+    cleaned = {}
+    for key, value in raw.items():
+        if isinstance(value, dict):
+            bloc = dict(value)
+            members = bloc.get("members", [])
+            if isinstance(members, str):
+                members = [members]
+            elif not isinstance(members, (list, tuple, set)):
+                members = []
+            bloc["members"] = list(dict.fromkeys(
+                name for name in members if isinstance(name, str) and name in s.get("countries", {})
+            ))
+            bloc.setdefault("id", str(key))
+            bloc.setdefault("name", f"International Bloc {key}")
+            bloc.setdefault("leader", bloc["members"][0] if bloc["members"] else "")
+            if bloc["leader"] and bloc["leader"] not in bloc["members"]:
+                bloc["members"].insert(0, bloc["leader"])
+            cleaned[str(key)] = bloc
+        elif isinstance(value, (list, tuple, set)):
+            members = list(dict.fromkeys(
+                name for name in value if isinstance(name, str) and name in s.get("countries", {})
+            ))
+            if members:
+                cleaned[str(key)] = {
+                    "id": str(key), "name": f"International Bloc {key}",
+                    "leader": members[0], "members": members
+                }
+    s["blocs"] = cleaned
+    return cleaned
+
+
 def _create_bloc(s, founder):
-    for bloc in s.setdefault("blocs", {}).values():
-        if founder in bloc.get("members", []):
+    blocs = _normalise_blocs(s)
+    for bloc in blocs.values():
+        if founder in bloc["members"]:
             _event(s, "diplomacy", f"{founder} already belongs to {bloc['name']}.")
             return
     bid = str(s.get("next_bloc_id", 1))
     s["next_bloc_id"] = int(bid) + 1
     name = f"International Bloc {bid}"
-    s["blocs"][bid] = {"id": bid, "name": name, "leader": founder, "members": [founder]}
+    blocs[bid] = {"id": bid, "name": name, "leader": founder, "members": [founder]}
     _event(s, "diplomacy", f"{founder} founded {name}.")
 
+
 def _invite_to_bloc(s, founder, target):
-    blocs = s.setdefault("blocs", {})
+    blocs = _normalise_blocs(s)
+    if founder not in s.get("countries", {}) or target not in s.get("countries", {}):
+        return
+    if founder == target:
+        return
+
+    # A country can belong to only one diplomatic bloc.
+    for existing in blocs.values():
+        if target in existing["members"]:
+            _event(s, "diplomacy", f"{target} already belongs to {existing['name']}.")
+            return
+
     bloc = next((b for b in blocs.values() if b.get("leader") == founder), None)
     if bloc is None:
         _create_bloc(s, founder)
+        blocs = _normalise_blocs(s)
         bloc = next((b for b in blocs.values() if b.get("leader") == founder), None)
-    if any(target in b.get("members", []) for b in blocs.values()):
-        _event(s, "diplomacy", f"{target} already belongs to a bloc.")
+    if bloc is None:
         return
-    bloc["members"].append(target)
-    s["relations"][founder][target] = clamp(s["relations"][founder][target] + 10, -100, 100)
-    s["relations"][target][founder] = clamp(s["relations"][target][founder] + 10, -100, 100)
+
+    members = bloc.get("members")
+    if not isinstance(members, list):
+        members = []
+        bloc["members"] = members
+    if target not in members:
+        members.append(target)
+
+    s.setdefault("relations", {}).setdefault(founder, {})
+    s.setdefault("relations", {}).setdefault(target, {})
+    s["relations"][founder][target] = clamp(s["relations"][founder].get(target, 0) + 10, -100, 100)
+    s["relations"][target][founder] = clamp(s["relations"][target].get(founder, 0) + 10, -100, 100)
     _event(s, "diplomacy", f"{target} joined {bloc['name']} led by {founder}.")
 
 def _sever_relations(s, a, b):
@@ -506,6 +564,7 @@ def advance_turn(state, providers=None):
     state.setdefault("trade_agreements", [])
     state.setdefault("sanctions", [])
     state.setdefault("blocs", {})
+    _normalise_blocs(state)
     state.setdefault("ultimatums", [])
     _ensure_sovereignty(state)
     state["turn"] += 1
