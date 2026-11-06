@@ -117,10 +117,12 @@ with td:
  guarantees=world.get('guarantees',[])
  agreements=world.get('trade_agreements',[])
  ultimatums=[u for u in world.get('ultimatums',[]) if u.get('status')=='pending']
- dc=st.columns(3)
+ sanctions=world.get('sanctions',[])
+ dc=st.columns(4)
  dc[0].metric('International blocs',len(blocs))
  dc[1].metric('Trade agreements',len(agreements))
  dc[2].metric('Independence guarantees',len(guarantees))
+ dc[3].metric('Active sanctions',len(sanctions))
  st.markdown('### International blocs')
  if blocs:
   for bloc in blocs.values():
@@ -134,6 +136,10 @@ with td:
  if guarantees:
   for guarantee in guarantees: st.write(f"{guarantee['guarantor']} guarantees {guarantee['protected']}")
  else: st.caption('No active guarantees.')
+ st.markdown('### Active sanctions')
+ if sanctions:
+  for sanction in sanctions: st.warning(f"{sanction['issuer']} → {sanction['target']} · trade and GDP growth restricted")
+ else: st.caption('No active sanctions.')
  st.markdown('### Pending ultimatums')
  if ultimatums:
   for u in ultimatums: st.warning(f"{u['issuer']} → {u['target']} · expires on turn {u['expires']}")
