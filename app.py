@@ -81,6 +81,11 @@ with tmap:
      st.write(', '.join(side_b) if side_b else 'No participants listed')
     st.progress(max(0,min(100,int(progress))))
     st.caption(f"War progress: {progress:.0f}%")
+    changes=war.get('territory_changes',[])
+    if changes:
+     st.markdown('**Recent frontline changes**')
+     for change in reversed(changes[-4:]):
+      st.caption(f"Turn {change['turn']}: {change['territory']} · {change['from']} → {change['to']}")
  else:
   st.info('No active wars right now. Rivalries can escalate as the simulation advances.')
  st.caption('Synthetic game values, not real-world assessments.')
