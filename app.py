@@ -38,7 +38,7 @@ with st.sidebar:
   for n in countries: st.session_state['provider_'+n]=dp; st.session_state['model_'+n]=dm
   st.success('Settings applied.')
 cols=st.columns(4); cols[0].metric('Sovereign states',len(independent_countries)); cols[1].metric('Annexed territories',annexed_territories); cols[2].metric('Combined GDP (game units)',f"{sum(c['gdp'] for c in countries.values()):.2f}"); cols[3].metric('Active wars',sum(1 for w in world.get('wars',{}).values() if w.get('status')=='active'))
-tmap,tc,te,tp,ta=st.tabs(['🌐 World map','📊 Countries','📰 World events','🎮 Player intervention','🤖 AI agents'])
+tmap,tc,td,te,tp,ta=st.tabs(['🌐 World map','📊 Countries','🤝 Diplomacy','📰 World events','🎮 Player intervention','🤖 AI agents'])
 with tmap:
  df=pd.DataFrame([{'Country':n,'ISO':c['iso'],'GDP':c['gdp'],'Stability':c['stability'],'Military':c['military'],'Controller':sovereignty.get(n,n)} for n,c in countries.items()])
  map_mode=st.radio('Map layer',['Stability','Territorial control'],horizontal=True)
@@ -95,6 +95,33 @@ with tc:
  selected=st.selectbox('Inspect country',list(countries)); c=countries[selected]; st.subheader(selected); m=st.columns(4)
  for col,label,key in zip(m,['GDP','Stability','Technology','Military'],['gdp','stability','tech','military']): col.metric(label,f"{c[key]:.2f}")
  rdf=pd.DataFrame([{'Country':n,'Relations':v} for n,v in world['relations'][selected].items() if n!=selected]); st.bar_chart(rdf.set_index('Country'))
+with td:
+ st.subheader('Diplomatic landscape')
+ blocs=world.get('blocs',{})
+ guarantees=world.get('guarantees',[])
+ agreements=world.get('trade_agreements',[])
+ ultimatums=[u for u in world.get('ultimatums',[]) if u.get('status')=='pending']
+ dc=st.columns(3)
+ dc[0].metric('International blocs',len(blocs))
+ dc[1].metric('Trade agreements',len(agreements))
+ dc[2].metric('Independence guarantees',len(guarantees))
+ st.markdown('### International blocs')
+ if blocs:
+  for bloc in blocs.values():
+   st.write(f"**{bloc['name']}** · Leader: {bloc['leader']} · Members: {', '.join(bloc['members'])}")
+ else: st.caption('No international blocs have been founded yet.')
+ st.markdown('### Trade agreements')
+ if agreements:
+  for deal in agreements: st.write(' ↔ '.join(deal.get('countries',[])))
+ else: st.caption('No active trade agreements.')
+ st.markdown('### Guarantees of independence')
+ if guarantees:
+  for guarantee in guarantees: st.write(f"{guarantee['guarantor']} guarantees {guarantee['protected']}")
+ else: st.caption('No active guarantees.')
+ st.markdown('### Pending ultimatums')
+ if ultimatums:
+  for u in ultimatums: st.warning(f"{u['issuer']} → {u['target']} · expires on turn {u['expires']}")
+ else: st.caption('No pending ultimatums.')
 with te:
  st.subheader('World chronicle')
  for e in reversed(world['events'][-60:]):
@@ -106,7 +133,7 @@ with tp:
   st.warning('No independent states remain. Reset the world to start a new simulation.')
  else:
   country=st.selectbox('Country',independent_countries,key='player_country'); action=st.selectbox('Order',list(ACTION_LABELS),format_func=lambda x:ACTION_LABELS[x]); target=None
-  if action in ['diplomacy','trade','deescalate','sanction','conflict','declare_war','form_alliance','break_alliance','peace','continue_war']:
+  if action in ['diplomacy','trade','deescalate','sanction','conflict','declare_war','form_alliance','break_alliance','peace','continue_war','guarantee_independence','revoke_guarantee','ultimatum','accept_ultimatum','reject_ultimatum','sever_relations','invite_to_bloc']:
    target=st.selectbox('Target',[n for n in independent_countries if n!=country])
   if st.button('Execute intervention',type='primary'): player_intervention(world,country,action,target); st.success('Intervention recorded.'); st.rerun()
  st.info('Conflict is an abstract game contest. No real-world tactics or operational military guidance are modelled.')
