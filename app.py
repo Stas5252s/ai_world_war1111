@@ -7,6 +7,12 @@ from worldwar.data import ACTION_LABELS
 st.set_page_config(page_title='AI WORLD WAR',page_icon='🌍',layout='wide')
 if 'world' not in st.session_state: st.session_state.world=new_world()
 world=st.session_state.world; countries=world['countries']
+world.setdefault('sovereignty',{n:n for n in countries})
+for n in countries: world['sovereignty'].setdefault(n,n)
+sovereignty=world['sovereignty']
+independent_countries=[n for n in countries if sovereignty.get(n,n)==n]
+territory_counts={n:sum(1 for owner in sovereignty.values() if owner==n) for n in countries}
+annexed_territories=sum(1 for territory,owner in sovereignty.items() if territory!=owner)
 st.markdown('<style>.block-container{padding-top:1.2rem}div[data-testid="stMetric"]{background:rgba(120,120,120,.08);padding:12px;border-radius:10px}</style>',unsafe_allow_html=True)
 st.title('🌍 AI WORLD WAR'); st.caption('Autonomous geopolitical sandbox · MVP 0.1 · Fictional game abstractions')
 with st.sidebar:
@@ -31,11 +37,15 @@ with st.sidebar:
  if st.button('Apply to all countries'):
   for n in countries: st.session_state['provider_'+n]=dp; st.session_state['model_'+n]=dm
   st.success('Settings applied.')
-cols=st.columns(4); cols[0].metric('Countries',len(countries)); cols[1].metric('Combined GDP (game units)',f"{sum(c['gdp'] for c in countries.values()):.2f}"); cols[2].metric('Average stability',f"{sum(c['stability'] for c in countries.values())/len(countries):.1f}/100"); cols[3].metric('Average technology',f"{sum(c['tech'] for c in countries.values())/len(countries):.1f}/100")
+cols=st.columns(4); cols[0].metric('Sovereign states',len(independent_countries)); cols[1].metric('Annexed territories',annexed_territories); cols[2].metric('Combined GDP (game units)',f"{sum(c['gdp'] for c in countries.values()):.2f}"); cols[3].metric('Active wars',sum(1 for w in world.get('wars',{}).values() if w.get('status')=='active'))
 tmap,tc,te,tp,ta=st.tabs(['🌐 World map','📊 Countries','📰 World events','🎮 Player intervention','🤖 AI agents'])
 with tmap:
- df=pd.DataFrame([{'Country':n,'ISO':c['iso'],'GDP':c['gdp'],'Stability':c['stability'],'Military':c['military']} for n,c in countries.items()])
- fig=px.choropleth(df,locations='ISO',color='Stability',hover_name='Country',hover_data={'GDP':':.3f','Stability':':.1f','Military':':.1f','ISO':False},color_continuous_scale='RdYlGn',range_color=(0,100),projection='natural earth',title='National stability · simulated values')
+ df=pd.DataFrame([{'Country':n,'ISO':c['iso'],'GDP':c['gdp'],'Stability':c['stability'],'Military':c['military'],'Controller':sovereignty.get(n,n)} for n,c in countries.items()])
+ map_mode=st.radio('Map layer',['Stability','Territorial control'],horizontal=True)
+ if map_mode=='Territorial control':
+  fig=px.choropleth(df,locations='ISO',color='Controller',hover_name='Country',hover_data={'Controller':True,'GDP':':.3f','Stability':':.1f','Military':':.1f','ISO':False},color_discrete_sequence=px.colors.qualitative.Dark24,projection='natural earth',title='Territorial control · simulated ownership')
+ else:
+  fig=px.choropleth(df,locations='ISO',color='Stability',hover_name='Country',hover_data={'Controller':True,'GDP':':.3f','Stability':':.1f','Military':':.1f','ISO':False},color_continuous_scale='RdYlGn',range_color=(0,100),projection='natural earth',title='National stability · simulated values')
  coords={
   'United States':(-98,39),'China':(104,35),'India':(79,22),'Indonesia':(118,-2),
   'Pakistan':(69,30),'Nigeria':(8,9),'Brazil':(-52,-10),'Bangladesh':(90,24),
@@ -75,7 +85,7 @@ with tmap:
   st.info('No active wars right now. Rivalries can escalate as the simulation advances.')
  st.caption('Synthetic game values, not real-world assessments.')
 with tc:
- rows=[{'Country':n,'Population (M)':c['population'],'GDP (game units)':c['gdp'],'Stability':c['stability'],'Technology':c['tech'],'Military':c['military'],'Resources':c['resources']} for n,c in countries.items()]
+ rows=[{'Country':n,'Controller':sovereignty.get(n,n),'Status':'Independent' if sovereignty.get(n,n)==n else 'Annexed','Territories controlled':territory_counts.get(n,0),'Population (M)':c['population'],'GDP (game units)':c['gdp'],'Stability':c['stability'],'Technology':c['tech'],'Military':c['military'],'Resources':c['resources']} for n,c in countries.items()]
  st.dataframe(pd.DataFrame(rows).set_index('Country').style.format(precision=1),use_container_width=True)
  selected=st.selectbox('Inspect country',list(countries)); c=countries[selected]; st.subheader(selected); m=st.columns(4)
  for col,label,key in zip(m,['GDP','Stability','Technology','Military'],['gdp','stability','tech','military']): col.metric(label,f"{c[key]:.2f}")
@@ -87,9 +97,13 @@ with te:
   if e.get('rationale'): st.caption('AI rationale: '+e['rationale'])
 with tp:
  st.subheader('Direct intervention'); st.write('Issue a game-level policy order to any government.')
- country=st.selectbox('Country',list(countries),key='player_country'); action=st.selectbox('Order',list(ACTION_LABELS),format_func=lambda x:ACTION_LABELS[x]); target=None
- if action in ['diplomacy','trade','deescalate','sanction','conflict']: target=st.selectbox('Target',[n for n in countries if n!=country])
- if st.button('Execute intervention',type='primary'): player_intervention(world,country,action,target); st.success('Intervention recorded.'); st.rerun()
+ if not independent_countries:
+  st.warning('No independent states remain. Reset the world to start a new simulation.')
+ else:
+  country=st.selectbox('Country',independent_countries,key='player_country'); action=st.selectbox('Order',list(ACTION_LABELS),format_func=lambda x:ACTION_LABELS[x]); target=None
+  if action in ['diplomacy','trade','deescalate','sanction','conflict','declare_war','form_alliance','break_alliance','peace','continue_war']:
+   target=st.selectbox('Target',[n for n in independent_countries if n!=country])
+  if st.button('Execute intervention',type='primary'): player_intervention(world,country,action,target); st.success('Intervention recorded.'); st.rerun()
  st.info('Conflict is an abstract game contest. No real-world tactics or operational military guidance are modelled.')
 with ta:
  st.subheader('Configure individual presidents'); st.caption('Fallback works offline. Ollama runs locally. Cloud API requires credentials.')
