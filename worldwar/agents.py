@@ -82,6 +82,17 @@ def _fallback(country, state):
             return {"action": "invite_to_bloc", "target": invitees[0],
                     "rationale": "Expanding the country's diplomatic bloc."}
 
+    # Guarantee a friendly, weaker state's independence.
+    guaranteed = {(g.get("guarantor"), g.get("protected")) for g in state.get("guarantees", [])}
+    if ranked and state["turn"] % 8 == 0:
+        candidate = next((n for n in ranked
+                          if (country, n) not in guaranteed
+                          and state["relations"][country].get(n, 0) > 12
+                          and c["military"] >= state["countries"][n]["military"]), None)
+        if candidate:
+            return {"action": "guarantee_independence", "target": candidate,
+                    "rationale": "Offering a security guarantee to a friendly state."}
+
     # Break a weak alliance if relations collapse.
     bad_allies = [n for n in my_allies if state["relations"][country].get(n, 0) < -15]
     if bad_allies:
