@@ -79,6 +79,14 @@ _FEATURED_COUNTRIES = {
         "stability": 72, "tech": 70, "military": 67, "resources": 53,
         "style": "security-focused, alliance-oriented"
     },
+    "North Korea": {
+        "outlook": "Prioritise regime survival, sovereignty and deterrence against perceived external threats.",
+        "priorities": ["regime security", "deterrence", "self-reliance", "strategic weapons programme", "economic survival"],
+        "red_lines": ["direct threats to regime survival", "foreign-backed political change", "loss of deterrent capability"],
+        "preferred_partners": ["China", "Russia"],
+        "competitors": ["South Korea", "United States", "Japan"],
+        "posture": "Highly security-focused, isolated and reliant on deterrence and selective external support."
+    },
     "Turkey": {
         "iso": "TUR", "population": 86, "gdp": 1.3,
         "stability": 56, "tech": 66, "military": 73, "resources": 68,
