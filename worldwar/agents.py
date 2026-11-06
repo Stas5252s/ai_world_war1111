@@ -50,6 +50,14 @@ def _fallback(country, state):
         return {"action": "continue_war", "target": enemies[0],
                 "rationale": "Maintaining pressure in the ongoing strategic contest."}
 
+    # Weak finances and low production push governments toward economic reform.
+    if c.get("budget_balance", 0) < 0 and c.get("debt", 0) > c.get("gdp", 0) * 700:
+        return {"action": "invest_economy", "target": None,
+                "rationale": "Trying to restore productive capacity and improve the public finances."}
+    if c.get("production", 50) < 38 and state["turn"] % 3 == 0:
+        return {"action": "invest_economy", "target": None,
+                "rationale": "Investing to reverse falling industrial and productive output."}
+
     # Respond to pending ultimatums.
     pending_from = [u["issuer"] for u in state.get("ultimatums", [])
                     if u.get("target") == country and u.get("status") == "pending"]
@@ -145,6 +153,7 @@ def choose_action(country, state, provider="Fallback", model=None):
     prompt = {
         "country": country,
         "profile": c,
+        "economic_state": {k: c.get(k) for k in ("gdp", "budget", "budget_balance", "treasury", "debt", "production", "trade", "resources", "resource_stock", "inflation", "unemployment")},
         "turn": state["turn"],
         "relations": state["relations"][country],
         "alliances": state.get("alliances", {}).get(country, []),
