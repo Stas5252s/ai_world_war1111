@@ -24,7 +24,7 @@ def new_world(seed=7):
         "turn": 0, "countries": countries, "relations": relations,
         "alliances": {n: [] for n in names},
         "wars": {}, "next_war_id": 1,
-        "guarantees": [], "trade_agreements": [], "blocs": {},
+        "guarantees": [], "trade_agreements": [], "sanctions": [], "blocs": {},
         "next_bloc_id": 1, "ultimatums": [],
         "sovereignty": {n: n for n in names},
         "events": [{"turn": 0, "kind": "world",
@@ -120,6 +120,7 @@ def _sever_relations(s, a, b):
     s["relations"][b][a] = -100
     _break_alliance(s, a, b)
     s["trade_agreements"] = [x for x in s.get("trade_agreements", []) if set(x.get("countries", [])) != {a, b}]
+    s["sanctions"] = [x for x in s.get("sanctions", []) if not ({x.get("issuer"), x.get("target")} == {a, b})]
     s["guarantees"] = [x for x in s.get("guarantees", []) if not ((x.get("guarantor") == a and x.get("protected") == b) or (x.get("guarantor") == b and x.get("protected") == a))]
     _event(s, "diplomacy", f"{a} severed diplomatic relations with {b}.")
 
@@ -175,10 +176,10 @@ def _finish_war(s, w, winner, reason, annex=False):
     ownership = _ensure_sovereignty(s)
     for n in winner_side:
         s["countries"][n]["stability"] = clamp(s["countries"][n]["stability"] + 2)
-        s["countries"][n]["gdp"] = round(s["countries"][n]["gdp"] * 1.01, 3)
+        s["countries"][n]["gdp"] = round(s["countries"][n]["gdp"] * 1.01, 6)
     for n in loser_side:
         s["countries"][n]["stability"] = clamp(s["countries"][n]["stability"] - 4)
-        s["countries"][n]["gdp"] = round(max(.05, s["countries"][n]["gdp"] * .97), 3)
+        s["countries"][n]["gdp"] = round(max(.00001, s["countries"][n]["gdp"] * .97), 6)
     captured = []
     if annex and winner_side:
         annexer = w.get("attacker") if w.get("attacker") in winner_side else winner_side[0]
@@ -348,11 +349,14 @@ def apply_action(s, country, action, target=None, rationale=""):
             cs[target]["trade"] = cs[target].get("trade", 0) * .94
             cs[target]["production"] = clamp(cs[target].get("production", 50) - .4)
             c["trade"] = c.get("trade", 0) * .99
-            msg, kind = f"{country} imposed economic restrictions on {target}.", "economy"
+            if not any(x.get("issuer") == country and x.get("target") == target for x in s.setdefault("sanctions", [])):
+                s["sanctions"].append({"issuer": country, "target": target, "since": s["turn"]})
+            msg, kind = f"{country} imposed continuing economic sanctions on {target}.", "economy"
         else:
             rel[country][target] = clamp(rel[country][target] + 18, -100, 100)
             rel[target][country] = clamp(rel[target][country] + 12, -100, 100)
-            msg, kind = f"{country} proposed de-escalation to {target}.", "diplomacy"
+            s["sanctions"] = [x for x in s.get("sanctions", []) if not (x.get("issuer") == country and x.get("target") == target)]
+            msg, kind = f"{country} proposed de-escalation to {target} and lifted its sanctions.", "diplomacy"
     elif action == "form_alliance" and valid:
         _form_alliance(s, country, target)
         return
@@ -387,6 +391,11 @@ def _economy_step(s):
                 active_wars[name] = active_wars.get(name, 0) + 1
 
     trade_partners = {name: set() for name in s["countries"]}
+    sanctioned_targets = {}
+    for sanction in s.get("sanctions", []):
+        target = sanction.get("target")
+        if target in s["countries"]:
+            sanctioned_targets[target] = sanctioned_targets.get(target, 0) + 1
     for agreement in s.get("trade_agreements", []):
         pair = agreement.get("countries", [])
         if len(pair) == 2 and all(n in trade_partners for n in pair):
@@ -411,12 +420,13 @@ def _economy_step(s):
         war_count = active_wars.get(name, 0)
         war_cost = min(0.035, war_count * 0.018)
         trade_bonus = min(0.012, len(trade_partners[name]) * 0.0015)
+        sanction_penalty = min(0.018, sanctioned_targets.get(name, 0) * 0.006)
         resource_factor = (c["resource_stock"] - 50) / 10000
         debt_ratio = c["debt"] / max(gdp * 1000, 1)
         political_factor = (c["stability"] - 50) / 10000
         technology_factor = (c["tech"] - 50) / 8000
         production_factor = (c["production"] - 50) / 9000
-        growth = 0.006 + political_factor + technology_factor + production_factor + resource_factor + trade_bonus - war_cost - max(0, debt_ratio - 0.8) * 0.004
+        growth = 0.006 + political_factor + technology_factor + production_factor + resource_factor + trade_bonus - war_cost - sanction_penalty - max(0, debt_ratio - 0.8) * 0.004
         if name not in independent:
             growth -= 0.002
         growth = max(-0.06, min(0.045, growth))
@@ -429,7 +439,7 @@ def _economy_step(s):
         c["production"] = round(clamp(c["production"] + production_change, 1, 100), 2)
         c["resource_stock"] = round(clamp(
             c["resource_stock"] + (c["resources"] - 50) * 0.012
-            - c["production"] * 0.025 - war_count * 0.35, 0, 100
+            - c["production"] * 0.005 - war_count * 0.15, 0, 100
         ), 2)
 
         population_growth = 0.008 + (c["stability"] - 50) / 12000 - war_count * 0.003
@@ -456,7 +466,8 @@ def _economy_step(s):
             c["treasury"] = round(max(0, c["treasury"] - repayment), 2)
 
         openness = 0.22 + c["tech"] / 250 + len(trade_partners[name]) * 0.012
-        c["trade"] = round(gdp_billions * openness * (1 - min(0.25, war_count * 0.08)), 2)
+        sanction_factor = max(0.55, 1 - sanctioned_targets.get(name, 0) * 0.12)
+        c["trade"] = round(gdp_billions * openness * (1 - min(0.25, war_count * 0.08)) * sanction_factor, 2)
         c["trade_balance"] = round(c["trade"] * ((c["resources"] - 50) / 250), 2)
         c["inflation"] = round(max(0.2, min(35, c["inflation"] + war_count * 0.7 + max(0, -balance / max(gdp_billions, 1) * 100) * 0.08 - 0.08)), 2)
         c["unemployment"] = round(max(1, min(45, c["unemployment"] + war_count * 0.45 - max(0, growth) * 18 - (c["production"] - 50) * 0.006)), 2)
@@ -468,6 +479,7 @@ def advance_turn(state, providers=None):
     state.setdefault("wars", {})
     state.setdefault("guarantees", [])
     state.setdefault("trade_agreements", [])
+    state.setdefault("sanctions", [])
     state.setdefault("blocs", {})
     state.setdefault("ultimatums", [])
     _ensure_sovereignty(state)
