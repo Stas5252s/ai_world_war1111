@@ -155,8 +155,10 @@ with tp:
  st.info('Conflict is an abstract game contest. No real-world tactics or operational military guidance are modelled.')
 with ta:
  st.subheader('Configure individual presidents'); st.caption('Fallback works offline. Ollama runs locally. Cloud API requires credentials.')
- for name in countries:
-  with st.expander(name):
-   st.selectbox('Provider',['Fallback','Ollama','Cloud API'],key='provider_'+name); st.text_input('Model override',key='model_'+name,placeholder='Use environment default')
-   st.caption('Profile: '+countries[name]['style'])
+ agent_country=st.selectbox('Country to configure',list(countries),key='agent_country')
+ with st.container(border=True):
+  st.selectbox('Provider',['Fallback','Ollama','Cloud API'],key='provider_'+agent_country)
+  st.text_input('Model override',key='model_'+agent_country,placeholder='Use environment default')
+  st.caption('Profile: '+countries[agent_country]['style'])
+  st.caption('Economic profile: GDP '+str(round(countries[agent_country]['gdp'],3))+'T · production '+str(round(countries[agent_country].get('production',0),1))+'/100')
 st.divider(); st.caption('Synthetic starting attributes. Not live statistics, intelligence or forecasts.')
