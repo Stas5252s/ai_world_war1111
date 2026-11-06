@@ -11,15 +11,30 @@ def new_world(seed=7):
         a: {b: (0 if a == b else random.randint(-20, 25)) for b in names}
         for a in names
     }
-    # Seed a few geopolitical rivalries so the world does not begin as a room
-    # full of perfectly polite economists.
+    # Seed a restrained diplomatic landscape from each country's
+    # strategic worldview. These are starting tendencies, not permanent blocs.
+    for a, profile in countries.items():
+        worldview = profile.get("worldview", {})
+        for b in worldview.get("preferred_partners", []):
+            if b in relations and b != a and a not in countries.get(b, {}).get("worldview", {}).get("competitors", []):
+                relations[a][b] = max(relations[a][b], 24)
+                relations[b][a] = max(relations[b][a], 18)
+        for b in worldview.get("competitors", []):
+            if b in relations and b != a:
+                relations[a][b] = min(relations[a][b], -34)
+                relations[b][a] = min(relations[b][a], -28)
+
+    # Persistent rivalries start with elevated tension, but can still improve.
     rivalries = [
         ("China", "India"), ("United States", "China"),
-        ("Russia", "United States"), ("Iran", "Saudi Arabia")
+        ("Russia", "United States"), ("Iran", "Saudi Arabia"),
+        ("India", "Pakistan"), ("Japan", "China"),
+        ("North Korea", "South Korea"), ("Israel", "Iran"),
+        ("Ukraine", "Russia")
     ]
     for a, b in rivalries:
         if a in relations and b in relations:
-            relations[a][b] = relations[b][a] = -45
+            relations[a][b] = relations[b][a] = -48
     return {
         "turn": 0, "countries": countries, "relations": relations,
         "alliances": {n: [] for n in names},
