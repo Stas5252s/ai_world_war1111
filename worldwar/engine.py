@@ -593,6 +593,8 @@ def advance_turn(state, providers=None):
     _normalise_blocs(state)
     state.setdefault("ultimatums", [])
     _ensure_sovereignty(state)
+    if not state.get("history"):
+        _record_history(state)
     state["turn"] += 1
     for ultimatum in state.setdefault("ultimatums", []):
         if ultimatum.get("status") == "pending" and state["turn"] >= ultimatum.get("expires", 0):
