@@ -1,5 +1,5 @@
 
-"""Synthetic game-balance values, not live national statistics."""
+"""2024 World Bank population/GDP baselines plus synthetic game-balance indicators."""
 
 _FEATURED_COUNTRIES = {
     "India": {
