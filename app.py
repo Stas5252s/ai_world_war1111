@@ -47,21 +47,32 @@ with tmap:
  }
  active_wars=[w for w in world.get('wars',{}).values() if w.get('status')=='active']
  for war in active_wars:
-  side_a=[n for n in war.get('side_a',[]) if n in coords]
-  side_b=[n for n in war.get('side_b',[]) if n in coords]
-  if side_a and side_b:
-   ax=sum(coords[n][0] for n in side_a)/len(side_a); ay=sum(coords[n][1] for n in side_a)/len(side_a)
-   bx=sum(coords[n][0] for n in side_b)/len(side_b); by=sum(coords[n][1] for n in side_b)/len(side_b)
-   fig.add_trace(go.Scattergeo(lon=[ax,bx],lat=[ay,by],mode='lines+markers',
-    line=dict(width=3,color='#e53935'),marker=dict(size=7,color='#e53935'),
-    name=f"War {war.get('id','')} · {war.get('progress',50):.0f}%"))
- fig.update_layout(height=550,margin=dict(l=0,r=0,t=50,b=0),paper_bgcolor='rgba(0,0,0,0)',geo=dict(bgcolor='rgba(0,0,0,0)')); st.plotly_chart(fig,use_container_width=True)
+  for side_key,side_name,color,symbol in [('side_a','Side A','#2878d0','circle'),('side_b','Side B','#e34b4b','diamond')]:
+   members=[n for n in war.get(side_key,[]) if n in coords]
+   if members:
+    fig.add_trace(go.Scattergeo(lon=[coords[n][0] for n in members],lat=[coords[n][1] for n in members],text=members,mode='markers+text',textposition='top center',marker=dict(size=11,color=color,symbol=symbol,line=dict(width=1,color='white')),name=f"War {war.get('id','?')} · {side_name}",hovertemplate=f"War {war.get('id','?')}<br>{side_name}: %{{text}}<extra></extra>"))
+ fig.update_layout(height=570,margin=dict(l=0,r=0,t=50,b=0),paper_bgcolor='rgba(0,0,0,0)',geo=dict(bgcolor='rgba(0,0,0,0)'),legend=dict(title='War sides',orientation='h',yanchor='bottom',y=-0.12,x=0))
+ st.plotly_chart(fig,use_container_width=True)
  if active_wars:
-  st.markdown('**Active wars**')
+  st.markdown('### Active wars')
+  st.caption('Blue circles = Side A. Red diamonds = Side B. Country fill = stability.')
   for war in active_wars:
-   st.write(f"War {war.get('id','')} · {' + '.join(war.get('side_a',[]))} vs {' + '.join(war.get('side_b',[]))} · progress {war.get('progress',50):.0f}%")
+   side_a=[n for n in war.get('side_a',[]) if n in countries]
+   side_b=[n for n in war.get('side_b',[]) if n in countries]
+   progress=float(war.get('progress',50))
+   with st.container(border=True):
+    st.markdown(f"**War {war.get('id','?')}**")
+    left,right=st.columns(2)
+    with left:
+     st.markdown('**SIDE A**')
+     st.write(', '.join(side_a) if side_a else 'No participants listed')
+    with right:
+     st.markdown('**SIDE B**')
+     st.write(', '.join(side_b) if side_b else 'No participants listed')
+    st.progress(max(0,min(100,int(progress))))
+    st.caption(f"War progress: {progress:.0f}%")
  else:
-  st.caption('No active wars right now. Rivalries can escalate as the simulation advances.')
+  st.info('No active wars right now. Rivalries can escalate as the simulation advances.')
  st.caption('Synthetic game values, not real-world assessments.')
 with tc:
  rows=[{'Country':n,'Population (M)':c['population'],'GDP (game units)':c['gdp'],'Stability':c['stability'],'Technology':c['tech'],'Military':c['military'],'Resources':c['resources']} for n,c in countries.items()]
