@@ -38,7 +38,7 @@ with st.sidebar:
   for n in countries: st.session_state['provider_'+n]=dp; st.session_state['model_'+n]=dm
   st.success('Settings applied.')
 cols=st.columns(4); cols[0].metric('Sovereign states',len(independent_countries)); cols[1].metric('Annexed territories',annexed_territories); cols[2].metric('Combined GDP (game units)',f"{sum(c['gdp'] for c in countries.values()):.2f}"); cols[3].metric('Active wars',sum(1 for w in world.get('wars',{}).values() if w.get('status')=='active'))
-tmap,tc,td,te,tp,ta=st.tabs(['🌐 World map','📊 Countries','🤝 Diplomacy','📰 World events','🎮 Player intervention','🤖 AI agents'])
+tmap,tc,tx,td,te,tp,ta=st.tabs(['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🎮 Player intervention','🤖 AI agents'])
 with tmap:
  df=pd.DataFrame([{'Country':n,'ISO':c['iso'],'GDP':c['gdp'],'Stability':c['stability'],'Military':c['military'],'Controller':sovereignty.get(n,n)} for n,c in countries.items()])
  map_mode=st.radio('Map layer',['Stability','Territorial control'],horizontal=True)
@@ -46,15 +46,7 @@ with tmap:
   fig=px.choropleth(df,locations='ISO',color='Controller',hover_name='Country',hover_data={'Controller':True,'GDP':':.3f','Stability':':.1f','Military':':.1f','ISO':False},color_discrete_sequence=px.colors.qualitative.Dark24,projection='natural earth',title='Territorial control · simulated ownership')
  else:
   fig=px.choropleth(df,locations='ISO',color='Stability',hover_name='Country',hover_data={'Controller':True,'GDP':':.3f','Stability':':.1f','Military':':.1f','ISO':False},color_continuous_scale='RdYlGn',range_color=(0,100),projection='natural earth',title='National stability · simulated values')
- coords={
-  'United States':(-98,39),'China':(104,35),'India':(79,22),'Indonesia':(118,-2),
-  'Pakistan':(69,30),'Nigeria':(8,9),'Brazil':(-52,-10),'Bangladesh':(90,24),
-  'Russia':(90,60),'Ethiopia':(40,9),'Germany':(10,51),'France':(2,46),
-  'United Kingdom':(-3,55),'Italy':(12,42),'Poland':(19,52),'Turkey':(35,39),
-  'Japan':(138,37),'South Korea':(127,36),'Iran':(53,32),'Saudi Arabia':(45,24),
-  'Vietnam':(108,16),'Egypt':(30,27),'South Africa':(24,-29),'Mexico':(-102,23),
-  'Canada':(-106,57),'Argentina':(-64,-34),'Australia':(134,-25)
- }
+ coords={n:(c['lon'],c['lat']) for n,c in countries.items() if c.get('lon') is not None and c.get('lat') is not None}
  active_wars=[w for w in world.get('wars',{}).values() if w.get('status')=='active']
  for war in active_wars:
   for side_key,side_name,color,symbol in [('side_a','Side A','#2878d0','circle'),('side_b','Side B','#e34b4b','diamond')]:
@@ -90,11 +82,35 @@ with tmap:
   st.info('No active wars right now. Rivalries can escalate as the simulation advances.')
  st.caption('Synthetic game values, not real-world assessments.')
 with tc:
- rows=[{'Country':n,'Controller':sovereignty.get(n,n),'Status':'Independent' if sovereignty.get(n,n)==n else 'Annexed','Territories controlled':territory_counts.get(n,0),'Population (M)':c['population'],'GDP (game units)':c['gdp'],'Stability':c['stability'],'Technology':c['tech'],'Military':c['military'],'Resources':c['resources']} for n,c in countries.items()]
+ rows=[{'Country':n,'Controller':sovereignty.get(n,n),'Status':'Independent' if sovereignty.get(n,n)==n else 'Annexed','Territories controlled':territory_counts.get(n,0),'Population (M)':c['population'],'GDP (game units)':c['gdp'],'Stability':c['stability'],'Technology':c['tech'],'Military':c['military'],'Resources':c['resources'],'Budget (USD bn)':c.get('budget',0),'Treasury (USD bn)':c.get('treasury',0),'Debt (USD bn)':c.get('debt',0),'Production':c.get('production',0),'Trade (USD bn)':c.get('trade',0)} for n,c in countries.items()]
  st.dataframe(pd.DataFrame(rows).set_index('Country').style.format(precision=1),use_container_width=True)
  selected=st.selectbox('Inspect country',list(countries)); c=countries[selected]; st.subheader(selected); m=st.columns(4)
  for col,label,key in zip(m,['GDP','Stability','Technology','Military'],['gdp','stability','tech','military']): col.metric(label,f"{c[key]:.2f}")
  rdf=pd.DataFrame([{'Country':n,'Relations':v} for n,v in world['relations'][selected].items() if n!=selected]); st.bar_chart(rdf.set_index('Country'))
+with tx:
+ st.subheader('National economy')
+ st.caption('GDP is shown in USD trillions. Budgets, public debt and trade are in USD billions. Each turn represents one simulated year.')
+ ec=st.columns(4)
+ ec[0].metric('World GDP',f"${sum(c['gdp'] for c in countries.values()):.2f}T")
+ ec[1].metric('Government revenue',f"${sum(c.get('budget',0) for c in countries.values()):,.0f}B")
+ ec[2].metric('Trade volume',f"${sum(c.get('trade',0) for c in countries.values()):,.0f}B")
+ ec[3].metric('Public debt',f"${sum(c.get('debt',0) for c in countries.values()):,.0f}B")
+ econ_rows=[{'Country':n,'GDP (USD T)':c['gdp'],'GDP per capita (USD)':c['gdp']*1000000/c['population'],'Population (M)':c['population'],'Budget revenue (USD bn)':c.get('budget',0),'Budget balance (USD bn)':c.get('budget_balance',0),'Treasury (USD bn)':c.get('treasury',0),'Public debt (USD bn)':c.get('debt',0),'Resources':c['resources'],'Resource stock':c.get('resource_stock',0),'Production index':c.get('production',0),'Trade volume (USD bn)':c.get('trade',0),'Trade balance (USD bn)':c.get('trade_balance',0),'Inflation %':c.get('inflation',0),'Unemployment %':c.get('unemployment',0)} for n,c in countries.items()]
+ st.dataframe(pd.DataFrame(econ_rows).set_index('Country').style.format(precision=2),use_container_width=True,height=520)
+ top=sorted(countries.items(),key=lambda item:item[1]['gdp'],reverse=True)[:15]
+ top_df=pd.DataFrame([{'Country':n,'GDP (USD T)':c['gdp']} for n,c in top])
+ st.markdown('### Largest economies')
+ st.plotly_chart(px.bar(top_df,x='GDP (USD T)',y='Country',orientation='h',title='Top 15 economies by nominal GDP',height=520),use_container_width=True)
+ econ_country=st.selectbox('Inspect economic indicators',list(countries),key='economy_country')
+ ecountry=countries[econ_country]
+ st.markdown(f"### {econ_country}")
+ em=st.columns(4)
+ em[0].metric('GDP',f"${ecountry['gdp']:.3f}T")
+ em[1].metric('Annual budget balance',f"${ecountry.get('budget_balance',0):,.1f}B")
+ em[2].metric('Public debt',f"${ecountry.get('debt',0):,.1f}B")
+ em[3].metric('Production index',f"{ecountry.get('production',0):.1f}/100")
+ st.caption(f"Population: {ecountry['population']:.2f} million · Resources: {ecountry['resources']:.0f}/100 · Stock: {ecountry.get('resource_stock',0):.1f}/100 · Inflation: {ecountry.get('inflation',0):.1f}% · Unemployment: {ecountry.get('unemployment',0):.1f}%")
+
 with td:
  st.subheader('Diplomatic landscape')
  blocs=world.get('blocs',{})
