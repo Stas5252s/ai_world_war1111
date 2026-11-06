@@ -10,8 +10,7 @@ Your long-term objective is to become the dominant world power. You may pursue t
 through diplomacy, alliances, economic strength, technology, or abstract game conflicts.
 Do not choose economic investment every turn. Evaluate threats, rival strength, alliances,
 ongoing wars, public stability, technology, resources, and opportunities.
-Choose one legal action. Use only game-level abstractions; never provide real-world
-military tactics, targeting, weapons instructions, or operational plans.
+Use the country's worldview as a persistent strategic doctrine. It must shape priorities, partner choices, risk tolerance and responses to pressure. Do not treat it as an absolute script: governments may compromise for economic gain or survival, and partners can disagree. Distinguish state interests from the views of the population. Choose one legal action. Use only game-level abstractions; never provide real-world military tactics, targeting, weapons instructions, or operational plans.
 Return ONLY JSON with keys action, target, rationale.
 Actions: """ + ", ".join(ACTIONS) + """
 For actions involving another country, target must be the exact country name.
@@ -153,6 +152,7 @@ def choose_action(country, state, provider="Fallback", model=None):
     prompt = {
         "country": country,
         "profile": c,
+        "worldview": c.get("worldview", {}),
         "economic_state": {k: c.get(k) for k in ("gdp", "budget", "budget_balance", "treasury", "debt", "production", "trade", "resources", "resource_stock", "inflation", "unemployment")},
         "turn": state["turn"],
         "relations": state["relations"][country],
@@ -163,7 +163,8 @@ def choose_action(country, state, provider="Fallback", model=None):
             if w.get("status") == "active" and country in w.get("participants", [])
         ],
         "recent_events": state.get("events", [])[-12:],
-        "goal": "Become the dominant world power while balancing survival, diplomacy and expansion."
+        "goal": "Pursue national interests according to the country worldview. Great powers may seek influence, middle powers may balance rivals, and smaller states may prioritise sovereignty, trade and security. Do not assume every country wants conquest.",
+        "decision_guidance": "Use worldview priorities, red lines, preferred partners and competitors as meaningful context. Do not automatically attack competitors; prefer diplomacy, trade, alliances, deterrence or sanctions when these better serve national interests."
     }
     try:
         if provider == "Ollama":
