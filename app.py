@@ -84,7 +84,24 @@ with tmap:
 with tc:
  rows=[{'Country':n,'Controller':sovereignty.get(n,n),'Status':'Independent' if sovereignty.get(n,n)==n else 'Annexed','Territories controlled':territory_counts.get(n,0),'Population (M)':c['population'],'GDP (USD T)':c['gdp'],'Stability':c['stability'],'Technology':c['tech'],'Military':c['military'],'Resources':c['resources'],'Budget (USD bn)':c.get('budget',0),'Treasury (USD bn)':c.get('treasury',0),'Debt (USD bn)':c.get('debt',0),'Production':c.get('production',0),'Trade (USD bn)':c.get('trade',0)} for n,c in countries.items()]
  st.dataframe(pd.DataFrame(rows).set_index('Country').style.format(precision=1),use_container_width=True)
- selected=st.selectbox('Inspect country',list(countries)); c=countries[selected]; st.subheader(selected); m=st.columns(4)
+ selected=st.selectbox('Inspect country',list(countries)); c=countries[selected]; st.subheader(selected)
+ worldview=c.get('worldview',{})
+ if worldview:
+  with st.expander('Strategic worldview',expanded=True):
+   st.markdown('**World outlook**')
+   st.write(worldview.get('outlook',''))
+   st.markdown('**Main priorities**')
+   st.write(' · '.join(worldview.get('priorities',[])))
+   st.markdown('**Red lines**')
+   st.write(' · '.join(worldview.get('red_lines',[])))
+   st.markdown('**Preferred partners**')
+   st.write(', '.join(worldview.get('preferred_partners',[])) or 'No fixed preferred partners')
+   st.markdown('**Strategic competitors**')
+   st.write(', '.join(worldview.get('competitors',[])) or 'No fixed strategic competitors')
+   st.caption('Strategic posture: '+worldview.get('posture','Pragmatic national-development policy'))
+ else:
+  st.caption('This country uses a general pragmatic doctrine.')
+ m=st.columns(4)
  for col,label,key in zip(m,['GDP','Stability','Technology','Military'],['gdp','stability','tech','military']): col.metric(label,f"{c[key]:.2f}")
  rdf=pd.DataFrame([{'Country':n,'Relations':v} for n,v in world['relations'][selected].items() if n!=selected]); st.bar_chart(rdf.set_index('Country'))
 with tx:
