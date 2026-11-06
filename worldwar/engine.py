@@ -120,7 +120,7 @@ def _sever_relations(s, a, b):
     s["relations"][b][a] = -100
     _break_alliance(s, a, b)
     s["trade_agreements"] = [x for x in s.get("trade_agreements", []) if set(x.get("countries", [])) != {a, b}]
-    s["guarantees"] = [x for x in s.get("guarantees", []) if not (x.get("guarantor") == a and x.get("protected") == b)]
+    s["guarantees"] = [x for x in s.get("guarantees", []) if not ((x.get("guarantor") == a and x.get("protected") == b) or (x.get("guarantor") == b and x.get("protected") == a))]
     _event(s, "diplomacy", f"{a} severed diplomatic relations with {b}.")
 
 def _start_war(s, attacker, defender):
@@ -149,7 +149,7 @@ def _start_war(s, attacker, defender):
     for guarantee in s.get("guarantees", []):
         if guarantee.get("protected") == defender:
             guarantor = guarantee.get("guarantor")
-            if guarantor in independent and guarantor not in s["wars"][wid]["participants"]:
+            if guarantor in independent and guarantor not in s["wars"][wid]["participants"] and not _active_war_between(s, guarantor, attacker):
                 s["wars"][wid]["side_b"].append(guarantor)
                 s["wars"][wid]["participants"].append(guarantor)
                 _event(s, "diplomacy", f"{guarantor} honored its guarantee to {defender} and joined war #{wid}.")
