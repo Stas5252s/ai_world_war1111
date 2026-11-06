@@ -37,7 +37,7 @@ with st.sidebar:
  if st.button('Apply to all countries'):
   for n in countries: st.session_state['provider_'+n]=dp; st.session_state['model_'+n]=dm
   st.success('Settings applied.')
-cols=st.columns(4); cols[0].metric('Sovereign states',len(independent_countries)); cols[1].metric('Annexed territories',annexed_territories); cols[2].metric('Combined GDP (game units)',f"{sum(c['gdp'] for c in countries.values()):.2f}"); cols[3].metric('Active wars',sum(1 for w in world.get('wars',{}).values() if w.get('status')=='active'))
+cols=st.columns(4); cols[0].metric('Sovereign states',len(independent_countries)); cols[1].metric('Annexed territories',annexed_territories); cols[2].metric('World GDP (USD T)',f"{sum(c['gdp'] for c in countries.values()):.2f}"); cols[3].metric('Active wars',sum(1 for w in world.get('wars',{}).values() if w.get('status')=='active'))
 tmap,tc,tx,td,te,tp,ta=st.tabs(['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🎮 Player intervention','🤖 AI agents'])
 with tmap:
  df=pd.DataFrame([{'Country':n,'ISO':c['iso'],'GDP':c['gdp'],'Stability':c['stability'],'Military':c['military'],'Controller':sovereignty.get(n,n)} for n,c in countries.items()])
@@ -82,7 +82,7 @@ with tmap:
   st.info('No active wars right now. Rivalries can escalate as the simulation advances.')
  st.caption('Synthetic game values, not real-world assessments.')
 with tc:
- rows=[{'Country':n,'Controller':sovereignty.get(n,n),'Status':'Independent' if sovereignty.get(n,n)==n else 'Annexed','Territories controlled':territory_counts.get(n,0),'Population (M)':c['population'],'GDP (game units)':c['gdp'],'Stability':c['stability'],'Technology':c['tech'],'Military':c['military'],'Resources':c['resources'],'Budget (USD bn)':c.get('budget',0),'Treasury (USD bn)':c.get('treasury',0),'Debt (USD bn)':c.get('debt',0),'Production':c.get('production',0),'Trade (USD bn)':c.get('trade',0)} for n,c in countries.items()]
+ rows=[{'Country':n,'Controller':sovereignty.get(n,n),'Status':'Independent' if sovereignty.get(n,n)==n else 'Annexed','Territories controlled':territory_counts.get(n,0),'Population (M)':c['population'],'GDP (USD T)':c['gdp'],'Stability':c['stability'],'Technology':c['tech'],'Military':c['military'],'Resources':c['resources'],'Budget (USD bn)':c.get('budget',0),'Treasury (USD bn)':c.get('treasury',0),'Debt (USD bn)':c.get('debt',0),'Production':c.get('production',0),'Trade (USD bn)':c.get('trade',0)} for n,c in countries.items()]
  st.dataframe(pd.DataFrame(rows).set_index('Country').style.format(precision=1),use_container_width=True)
  selected=st.selectbox('Inspect country',list(countries)); c=countries[selected]; st.subheader(selected); m=st.columns(4)
  for col,label,key in zip(m,['GDP','Stability','Technology','Military'],['gdp','stability','tech','military']): col.metric(label,f"{c[key]:.2f}")
@@ -161,4 +161,4 @@ with ta:
   st.text_input('Model override',key='model_'+agent_country,placeholder='Use environment default')
   st.caption('Profile: '+countries[agent_country]['style'])
   st.caption('Economic profile: GDP '+str(round(countries[agent_country]['gdp'],3))+'T · production '+str(round(countries[agent_country].get('production',0),1))+'/100')
-st.divider(); st.caption('Synthetic starting attributes. Not live statistics, intelligence or forecasts.')
+st.divider(); st.caption('Population and GDP baselines use 2024 data where available; stability, military, technology and resource indices are game estimates.')
