@@ -3,6 +3,30 @@ import random
 from .data import COUNTRIES
 from .agents import choose_action
 
+def _record_history(state):
+    """Store a compact yearly snapshot for historical charts."""
+    countries = {}
+    for name, country in state.get("countries", {}).items():
+        countries[name] = {
+            key: country.get(key, 0)
+            for key in ("gdp", "population", "stability", "tech", "military", "production")
+        }
+    active_wars = sum(
+        1 for war in state.get("wars", {}).values()
+        if war.get("status") == "active"
+    )
+    state.setdefault("history", []).append({
+        "turn": state.get("turn", 0),
+        "countries": countries,
+        "world_gdp": sum(country.get("gdp", 0) for country in state.get("countries", {}).values()),
+        "world_population": sum(country.get("population", 0) for country in state.get("countries", {}).values()),
+        "active_wars": active_wars,
+        "sovereign_states": len(_independent_countries(state)),
+    })
+    # Keep the latest 500 years to prevent saves from growing without limit.
+    state["history"] = state["history"][-500:]
+
+
 def new_world(seed=7):
     random.seed(seed)
     countries = copy.deepcopy(COUNTRIES)
@@ -35,7 +59,7 @@ def new_world(seed=7):
     for a, b in rivalries:
         if a in relations and b in relations:
             relations[a][b] = relations[b][a] = -48
-    return {
+    state = {
         "turn": 0, "countries": countries, "relations": relations,
         "alliances": {n: [] for n in names},
         "wars": {}, "next_war_id": 1,
@@ -46,6 +70,8 @@ def new_world(seed=7):
                     "text": "The simulation begins. Every government seeks global influence."}],
         "history": []
     }
+    _record_history(state)
+    return state
 
 def _ensure_sovereignty(s):
     """Keep old saved sessions compatible with the territorial-control system."""
@@ -588,12 +614,7 @@ def advance_turn(state, providers=None):
             state["events"][-1]["text"] += f" [AI: {p}]"
     _progress_wars(state)
     _economy_step(state)
-    state["history"].append({
-        "turn": state["turn"],
-        "countries": copy.deepcopy(state["countries"]),
-        "wars": copy.deepcopy(state["wars"]),
-        "sovereignty": copy.deepcopy(state["sovereignty"])
-    })
+    _record_history(state)
     return state
 
 def player_intervention(state, country, action, target=None):
