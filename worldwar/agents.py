@@ -50,6 +50,15 @@ def _fallback(country, state):
         return {"action": "continue_war", "target": enemies[0],
                 "rationale": "Maintaining pressure in the ongoing strategic contest."}
 
+    # Respond to pending ultimatums.
+    pending_from = [u["issuer"] for u in state.get("ultimatums", [])
+                    if u.get("target") == country and u.get("status") == "pending"]
+    if pending_from:
+        issuer = pending_from[0]
+        action = "accept_ultimatum" if state["relations"][country].get(issuer, 0) > -45 else "reject_ultimatum"
+        return {"action": action, "target": issuer,
+                "rationale": "Responding to a pending diplomatic ultimatum."}
+
     # Build alliances when isolated or threatened.
     my_allies = alliances.get(country, [])
     ranked = sorted(
@@ -60,6 +69,18 @@ def _fallback(country, state):
     if ranked and len(my_allies) < 2 and state["relations"][country].get(ranked[0], 0) > 18:
         return {"action": "form_alliance", "target": ranked[0],
                 "rationale": "Building a coalition to increase diplomatic and strategic influence."}
+
+    # Found and expand diplomatic blocs.
+    membership = [b for b in state.get("blocs", {}).values() if country in b.get("members", [])]
+    if not membership and state["turn"] % 9 == 0:
+        return {"action": "create_bloc", "target": None,
+                "rationale": "Creating a diplomatic bloc for long-term cooperation."}
+    if membership and state["turn"] % 6 == 0:
+        existing = [m for b in state.get("blocs", {}).values() for m in b.get("members", [])]
+        invitees = [n for n in ranked if n not in existing]
+        if invitees:
+            return {"action": "invite_to_bloc", "target": invitees[0],
+                    "rationale": "Expanding the country's diplomatic bloc."}
 
     # Break a weak alliance if relations collapse.
     bad_allies = [n for n in my_allies if state["relations"][country].get(n, 0) < -15]
@@ -163,7 +184,10 @@ def choose_action(country, state, provider="Fallback", model=None):
             target = None
         needs_target = d["action"] in {
             "diplomacy", "trade", "sanction", "conflict", "declare_war",
-            "form_alliance", "break_alliance", "peace", "continue_war"
+            "form_alliance", "break_alliance", "guarantee_independence",
+            "revoke_guarantee", "ultimatum", "accept_ultimatum",
+            "reject_ultimatum", "sever_relations", "invite_to_bloc",
+            "peace", "continue_war"
         }
         if needs_target and target is None:
             return _fallback(country, state), "Fallback"
