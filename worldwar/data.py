@@ -152,7 +152,7 @@ COUNTRIES = {
 ACTIONS = [
     "invest_economy", "research", "social_program", "diplomacy", "trade",
     "mobilize", "deescalate", "sanction", "conflict",
-    "form_alliance", "break_alliance", "declare_war", "peace", "continue_war"
+    "form_alliance", "break_alliance", "guarantee_independence", "revoke_guarantee", "ultimatum", "accept_ultimatum", "reject_ultimatum", "sever_relations", "create_bloc", "invite_to_bloc", "declare_war", "peace", "continue_war"
 ]
 
 ACTION_LABELS = {
@@ -167,6 +167,14 @@ ACTION_LABELS = {
     "conflict": "Initiate abstract conflict",
     "form_alliance": "Form alliance",
     "break_alliance": "Break alliance",
+    "guarantee_independence": "Guarantee independence",
+    "revoke_guarantee": "Revoke guarantee",
+    "ultimatum": "Issue ultimatum",
+    "accept_ultimatum": "Accept ultimatum",
+    "reject_ultimatum": "Reject ultimatum",
+    "sever_relations": "Sever diplomatic relations",
+    "create_bloc": "Create international bloc",
+    "invite_to_bloc": "Invite country to bloc",
     "declare_war": "Declare war",
     "peace": "Negotiate peace",
     "continue_war": "Continue ongoing war"
