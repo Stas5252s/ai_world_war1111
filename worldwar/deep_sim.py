@@ -398,6 +398,73 @@ def _information_environment_step(state):
             government["approval"] = round(_clamp(government.get("approval", 50) - min(0.18, pressure * 0.002), 5, 95), 1)
         record["pressure_gap"] = round(pressure, 1)
 
+
+def _covert_pressure_step(state):
+    """Resolve occasional abstract influence contests; no operational detail is modelled."""
+    turn = state.get("turn", 0)
+    if turn % 4 != 0:
+        return
+    countries = state.get("countries", {})
+    influence = state.get("influence", {})
+    relations = state.get("relations", {})
+    resilience = state.get("information_resilience", {})
+    operations = state.setdefault("covert_operations", [])
+    candidates = []
+    for target, actors in influence.items():
+        if target not in countries:
+            continue
+        for actor, score in actors.items():
+            if actor not in countries or actor == target or float(score) < 32:
+                continue
+            relation = float(relations.get(actor, {}).get(target, 0))
+            if relation < -12:
+                candidates.append((float(score) + abs(relation) * 0.25, actor, target))
+    candidates.sort(reverse=True)
+    for _, actor, target in candidates[:2]:
+        target_resilience = float(resilience.get(target, {}).get("resilience", 45))
+        tech_edge = float(countries[actor].get("tech", 40)) - float(countries[target].get("tech", 40))
+        chance = _clamp(38 + float(influence[target].get(actor, 0)) * 0.35 + tech_edge * 0.18 - target_resilience * 0.28, 5, 75)
+        success = random.random() * 100 < chance
+        entry = {"turn": turn, "actor": actor, "target": target, "success": success, "chance": round(chance, 1)}
+        operations.append(entry)
+        if success:
+            countries[target]["stability"] = _clamp(countries[target].get("stability", 50) - 0.7, 0, 100)
+            relations[target][actor] = _clamp(relations[target][actor] - 2, -100, 100)
+            _event(state, "covert_influence", f"An abstract foreign influence operation by {actor} unsettled public confidence in {target}.",
+                   "The simulation resolves covert pressure probabilistically using influence, technology and resilience.")
+        else:
+            relations[target][actor] = _clamp(relations[target][actor] - 0.5, -100, 100)
+            _event(state, "covert_influence", f"{target} detected and contained an attempted foreign influence operation attributed to {actor}.")
+    state["covert_operations"] = operations[-120:]
+
+
+def _self_determination_step(state):
+    """Occupied territories can regain sovereignty after sustained legitimacy collapse."""
+    ownership = state.setdefault("sovereignty", {})
+    countries = state.get("countries", {})
+    movements = state.setdefault("autonomy_movements", {})
+    for territory, controller in list(ownership.items()):
+        if territory == controller or territory not in countries or controller not in countries:
+            continue
+        stability = float(countries[territory].get("stability", 50))
+        record = movements.setdefault(territory, {"pressure": 0.0, "since": state.get("turn", 0)})
+        if stability < 28:
+            record["pressure"] = _clamp(record.get("pressure", 0) + (28 - stability) * 0.12, 0, 100)
+        else:
+            record["pressure"] = _clamp(record.get("pressure", 0) - 1.5, 0, 100)
+        if record["pressure"] >= 35 and state.get("turn", 0) - int(record.get("last_attempt", -20)) >= 6:
+            record["last_attempt"] = state.get("turn", 0)
+            if random.random() < min(0.8, 0.25 + record["pressure"] / 150):
+                ownership[territory] = territory
+                countries[territory]["stability"] = _clamp(stability + 5, 0, 100)
+                relations = state.get("relations", {})
+                relations.setdefault(territory, {})[controller] = _clamp(relations.get(territory, {}).get(controller, 0) - 12, -100, 100)
+                relations.setdefault(controller, {})[territory] = _clamp(relations.get(controller, {}).get(territory, 0) - 8, -100, 100)
+                _event(state, "independence", f"{territory} restored its sovereignty after a prolonged legitimacy crisis under {controller}'s control.",
+                       "The abstract self-determination system responds to sustained low stability in an occupied territory.")
+                movements.pop(territory, None)
+    state["autonomy_movements"] = movements
+
 def advance_deep_systems(state):
     initialize_deep_systems(state)
     _update_state_memory(state)
@@ -409,5 +476,7 @@ def advance_deep_systems(state):
     _corporate_step(state)
     _negotiation_step(state)
     _information_environment_step(state)
+    _covert_pressure_step(state)
+    _self_determination_step(state)
     _global_crisis_step(state)
     return state
