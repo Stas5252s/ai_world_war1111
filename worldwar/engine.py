@@ -27,6 +27,48 @@ def _record_history(state):
     state["history"] = state["history"][-500:]
 
 
+def _update_influence(s):
+    """Update soft-power scores from diplomacy, trade, security ties and economic weight."""
+    countries = s.get("countries", {})
+    independent = set(_independent_countries(s))
+    influence = s.setdefault("influence", {})
+    trade_pairs = {frozenset(deal.get("countries", [])) for deal in s.get("trade_agreements", []) if len(deal.get("countries", [])) == 2}
+    guarantee_pairs = {(item.get("guarantor"), item.get("protected")) for item in s.get("guarantees", [])}
+    sanctioned = {(item.get("issuer"), item.get("target")) for item in s.get("sanctions", [])}
+    at_war = set()
+    for war in s.get("wars", {}).values():
+        if war.get("status") == "active":
+            members = war.get("participants", [])
+            for a in members:
+                for b in members:
+                    if a != b: at_war.add(frozenset((a, b)))
+    bloc_memberships = {}
+    for bloc in _normalise_blocs(s).values():
+        members = bloc.get("members", [])
+        for member in members:
+            bloc_memberships.setdefault(member, set()).update(n for n in members if n != member)
+    relations = s.get("relations", {})
+    for target in countries:
+        scores = influence.setdefault(target, {})
+        for actor in list(scores):
+            if actor not in countries or actor == target or actor not in independent: scores.pop(actor, None)
+        if target not in independent: continue
+        for actor in independent:
+            if actor == target: continue
+            relation = relations.get(target, {}).get(actor, 0)
+            current = float(scores.get(actor, max(0.0, (relation + 20) * 0.18)))
+            economic_weight = min(0.35, max(0.0, countries[actor].get("gdp", 0)) ** 0.25 * 0.08)
+            change = (relation - 20) / 45 + economic_weight - 0.35
+            pair = frozenset((actor, target))
+            if pair in trade_pairs: change += 1.2
+            if actor in s.get("alliances", {}).get(target, []): change += 1.6
+            if actor in bloc_memberships.get(target, set()): change += 0.9
+            if (actor, target) in guarantee_pairs: change += 0.8
+            if (actor, target) in sanctioned: change -= 1.5
+            if pair in at_war: change -= 3.0
+            scores[actor] = round(clamp(current + change, 0, 100), 2)
+    s["influence"] = influence
+
 def new_world(seed=7):
     random.seed(seed)
     countries = copy.deepcopy(COUNTRIES)
@@ -63,6 +105,7 @@ def new_world(seed=7):
         "turn": 0, "countries": countries, "relations": relations,
         "alliances": {n: [] for n in names},
         "wars": {}, "next_war_id": 1,
+        "influence": {target: {actor: max(0.0, (relations[target][actor] + 20) * 0.18) for actor in names if actor != target} for target in names},
         "guarantees": [], "trade_agreements": [], "sanctions": [], "blocs": {},
         "next_bloc_id": 1, "ultimatums": [],
         "sovereignty": {n: n for n in names},
@@ -616,6 +659,7 @@ def advance_turn(state, providers=None):
             state["events"][-1]["text"] += f" [AI: {p}]"
     _progress_wars(state)
     _economy_step(state)
+    _update_influence(state)
     _record_history(state)
     return state
 
