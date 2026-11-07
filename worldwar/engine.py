@@ -721,6 +721,98 @@ def _economy_step(s):
 
 
 
+def _initialize_politics(state):
+    politics = state.setdefault("politics", {})
+    ideologies = ["Pragmatist", "National Conservative", "Liberal", "Social Democratic", "Green", "Reformist"]
+    parties = ["National Development Party", "Civic Alliance", "People's Coalition", "Reform Movement", "Social Union", "National Front"]
+    for name in state.get("countries", {}):
+        if name not in politics:
+            index = sum(ord(ch) for ch in name)
+            politics[name] = {
+                "government": parties[index % len(parties)],
+                "ideology": ideologies[index % len(ideologies)],
+                "approval": round(42 + (index % 35), 1),
+                "election_due": 4 + index % 5,
+                "elections": 0,
+                "opposition": parties[(index + 2) % len(parties)]
+            }
+    return politics
+
+
+def _world_events_step(state):
+    politics = _initialize_politics(state)
+    countries = state.get("countries", {})
+    independent = _independent_countries(state)
+    turn = state.get("turn", 0)
+
+    # Government approval reacts to economic and political conditions.
+    for name in independent:
+        country = countries[name]
+        government = politics[name]
+        approval = government.get("approval", 50)
+        approval += (country.get("stability", 50) - 50) * 0.018
+        approval += max(-0.35, min(0.35, country.get("gdp_growth", 0) * 10))
+        if country.get("inflation", 0) > 10:
+            approval -= 0.45
+        government["approval"] = round(clamp(approval, 5, 95), 1)
+
+        if turn >= government.get("election_due", 999):
+            government["elections"] = government.get("elections", 0) + 1
+            incumbent_wins = government["approval"] >= random.randint(38, 66)
+            old = government["government"]
+            if incumbent_wins:
+                government["approval"] = round(clamp(government["approval"] + 5, 5, 95), 1)
+                result = f"{old} retained power"
+            else:
+                government["government"], government["opposition"] = government["opposition"], old
+                government["ideology"] = random.choice(["Reformist", "Liberal", "Social Democratic", "National Conservative"])
+                government["approval"] = round(random.uniform(48, 68), 1)
+                state["relations"] = state.get("relations", {})
+                result = f"{government['government']} won and formed a new government"
+                _event(state, "election", f"Political change in {name}: {result}. Foreign policy may shift.")
+            if incumbent_wins:
+                _event(state, "election", f"Election in {name}: {result}. Government approval is {government['approval']:.0f}%.")
+            government["election_due"] = turn + random.randint(4, 7)
+
+    # A small number of global stories each year, with persistent consequences.
+    if not independent or random.random() > 0.58:
+        return
+    candidates = [n for n in independent if n in countries]
+    country_name = random.choice(candidates)
+    country = countries[country_name]
+    event_type = random.choices(
+        ["protests", "recession", "boom", "scandal", "diplomatic_thaw", "energy_shock"],
+        weights=[22, 18, 13, 14, 18, 15], k=1
+    )[0]
+    if event_type == "protests":
+        country["stability"] = round(clamp(country.get("stability", 50) - random.uniform(3, 8), 0, 100), 1)
+        politics[country_name]["approval"] = round(clamp(politics[country_name]["approval"] - random.uniform(5, 12), 5, 95), 1)
+        _event(state, "protest", f"Large anti-government protests erupted in {country_name}. Government approval fell to {politics[country_name]['approval']:.0f}%.")
+    elif event_type == "recession":
+        country["gdp"] = round(max(0.00001, country.get("gdp", 0.01) * random.uniform(0.94, 0.985)), 6)
+        country["stability"] = round(clamp(country.get("stability", 50) - random.uniform(1, 4), 0, 100), 1)
+        _event(state, "crisis", f"Economic recession hit {country_name}. GDP contracted and public confidence weakened.")
+    elif event_type == "boom":
+        country["gdp"] = round(country.get("gdp", 0.01) * random.uniform(1.015, 1.04), 6)
+        country["production"] = round(clamp(country.get("production", 50) + random.uniform(1, 3), 0, 100), 1)
+        _event(state, "economy", f"Economic boom in {country_name}: investment and production accelerated.")
+    elif event_type == "scandal":
+        politics[country_name]["approval"] = round(clamp(politics[country_name]["approval"] - random.uniform(4, 10), 5, 95), 1)
+        _event(state, "scandal", f"A major political scandal shook {country_name}. The government is facing mounting pressure.")
+    elif event_type == "diplomatic_thaw":
+        partners = [n for n in candidates if n != country_name and state.get("relations", {}).get(country_name, {}).get(n, -100) < 35]
+        if partners:
+            target = random.choice(partners)
+            delta = random.randint(8, 16)
+            state["relations"][country_name][target] = clamp(state["relations"][country_name][target] + delta, -100, 100)
+            state["relations"][target][country_name] = clamp(state["relations"][target][country_name] + delta, -100, 100)
+            _event(state, "diplomacy", f"Unexpected diplomatic thaw: {country_name} and {target} reopened channels and improved relations.")
+    elif event_type == "energy_shock":
+        country["inflation"] = round(min(35, country.get("inflation", 3) + random.uniform(1, 3)), 2)
+        country["stability"] = round(clamp(country.get("stability", 50) - random.uniform(1, 3), 0, 100), 1)
+        _event(state, "crisis", f"An energy-price shock increased inflation and political pressure in {country_name}.")
+
+
 def advance_turn(state, providers=None):
     state.setdefault("alliances", {n: [] for n in state["countries"]})
     state.setdefault("wars", {})
@@ -756,6 +848,7 @@ def advance_turn(state, providers=None):
     _progress_wars(state)
     _economy_step(state)
     _update_influence(state)
+    _world_events_step(state)
     _record_history(state)
     return state
 
