@@ -126,6 +126,35 @@ def new_world(seed=7):
     _record_history(state)
     return state
 
+def ensure_organizations(s):
+    if s.get("organizations"):
+        return _normalize_organizations(s)
+    countries = s.get("countries", {})
+    names = list(countries)
+    definitions = {
+        "UN": ("United Nations", "diplomatic", "Global forum for diplomacy and peaceful dispute resolution.", names),
+        "NATO": ("NATO", "defense", "Collective defence: members support an attacked member in the simulation.", ["United States","Canada","United Kingdom","France","Germany","Italy","Poland","Turkey","Norway","Denmark","Netherlands","Belgium","Spain","Portugal","Greece","Czechia","Hungary","Romania","Bulgaria","Slovakia","Slovenia","Croatia","Estonia","Latvia","Lithuania","Albania","Montenegro","North Macedonia","Finland","Sweden"]),
+        "EU": ("European Union", "economic", "Economic integration and shared markets.", ["Germany","France","Italy","Poland","Spain","Netherlands","Belgium","Sweden","Finland","Denmark","Ireland","Austria","Portugal","Greece","Czechia","Hungary","Romania","Bulgaria","Slovakia","Slovenia","Croatia","Estonia","Latvia","Lithuania","Luxembourg","Cyprus","Malta"]),
+        "BRICS": ("BRICS", "economic", "Economic cooperation among major emerging economies.", ["Brazil","Russia","India","China","South Africa","Egypt","Ethiopia","Indonesia","Iran","United Arab Emirates"]),
+        "ASEAN": ("ASEAN", "economic", "Southeast Asian regional cooperation.", ["Indonesia","Malaysia","Singapore","Thailand","Vietnam","Philippines","Cambodia","Laos","Myanmar","Brunei"]),
+        "AU": ("African Union", "diplomatic", "Continental cooperation and regional stability.", [n for n in names if countries[n].get("iso") in {"DZA","AGO","BEN","BWA","BFA","BDI","CPV","CMR","CAF","TCD","COM","COG","COD","CIV","DJI","EGY","GNQ","ERI","SWZ","ETH","GAB","GMB","GHA","GIN","GNB","KEN","LSO","LBR","LBY","MDG","MWI","MLI","MRT","MUS","MAR","MOZ","NAM","NER","NGA","RWA","STP","SEN","SYC","SLE","SOM","ZAF","SSD","SDN","TZA","TGO","TUN","UGA","ZMB","ZWE"}]),
+        "G7": ("Group of Seven", "economic", "Forum for coordination among advanced industrial economies.", ["United States","Canada","United Kingdom","France","Germany","Italy","Japan"]),
+        "OPEC": ("OPEC", "energy", "Coordination among major oil-exporting countries.", ["Saudi Arabia","Iran","Iraq","Kuwait","United Arab Emirates","Venezuela","Nigeria","Algeria","Libya","Angola","Congo","Gabon","Equatorial Guinea"])
+    }
+    s["organizations"] = {
+        key: {"name": name, "type": kind, "description": desc,
+              "members": [n for n in members if n in countries], "founded": 0}
+        for key, (name, kind, desc, members) in definitions.items()
+    }
+    return s["organizations"]
+
+
+def organization_membership(s, country, organization, action):
+    ensure_organizations(s)
+    _organization_membership(s, country, organization, action)
+    return s
+
+
 def _normalize_organizations(s):
     organizations = s.setdefault("organizations", {})
     if not isinstance(organizations, dict):
@@ -700,6 +729,7 @@ def advance_turn(state, providers=None):
     state.setdefault("sanctions", [])
     state.setdefault("blocs", {})
     _normalise_blocs(state)
+    ensure_organizations(state)
     state.setdefault("ultimatums", [])
     _ensure_sovereignty(state)
     if not state.get("history"):
