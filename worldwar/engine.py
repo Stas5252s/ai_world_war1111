@@ -675,7 +675,7 @@ def _economy_step(s):
         resource_factor = (c["resource_stock"] - 50) / 10000
         debt_ratio = c["debt"] / max(gdp * 1000, 1)
         political_factor = (c["stability"] - 50) / 10000
-        technology_factor = (c["tech"] - 50) / 8000
+        technology_factor = (c["tech"] - 50) / 8000 + len(s.get("technology", {}).get(name, {}).get("unlocked", [])) * 0.00035
         production_factor = (c["production"] - 50) / 9000
         growth = 0.006 + political_factor + technology_factor + production_factor + resource_factor + trade_bonus - war_cost - sanction_penalty - max(0, debt_ratio - 0.8) * 0.004
         if name not in independent:
@@ -683,7 +683,7 @@ def _economy_step(s):
         growth = max(-0.06, min(0.045, growth))
         c["gdp"] = round(max(0.00001, gdp * (1 + growth)), 6)
 
-        production_change = (c["tech"] - 50) * 0.006 + (c["resources"] - 50) * 0.003
+        production_change = (c["tech"] - 50) * 0.006 + (c["resources"] - 50) * 0.003 + len(s.get("technology", {}).get(name, {}).get("unlocked", [])) * 0.025
         production_change += trade_bonus * 80 - (1.25 * war_count)
         if c["resource_stock"] < 15:
             production_change -= 0.8
@@ -724,6 +724,85 @@ def _economy_step(s):
         c["unemployment"] = round(max(1, min(45, c["unemployment"] + war_count * 0.45 - max(0, growth) * 18 - (c["production"] - 50) * 0.006)), 2)
 
 
+
+
+def _initialize_ai_profiles(state):
+    """Give each government persistent strategic priorities derived from its doctrine."""
+    profiles = state.setdefault("ai_profiles", {})
+    for name, country in state.get("countries", {}).items():
+        if name in profiles:
+            continue
+        worldview = country.get("worldview", {})
+        priorities = " ".join(worldview.get("priorities", [])).lower()
+        if any(word in priorities for word in ("technology", "innovation", "research", "digital")):
+            goal = "innovation"
+        elif any(word in priorities for word in ("security", "deterrence", "defence", "defense", "sovereignty", "regime")):
+            goal = "security"
+        elif any(word in priorities for word in ("influence", "leadership", "diplomacy", "regional", "alliances")):
+            goal = "influence"
+        else:
+            goal = "prosperity"
+        profiles[name] = {
+            "primary_goal": goal,
+            "doctrine": worldview.get("posture", "Pragmatic national development"),
+            "established_turn": state.get("turn", 0)
+        }
+    return profiles
+
+
+def _technology_step(state):
+    """Unlock game technology milestones and apply a small permanent economic benefit."""
+    programs = state.setdefault("technology", {})
+    milestones = [
+        (45, "Industrial automation", "automation and advanced manufacturing"),
+        (60, "Advanced computing", "high-performance computing and digital infrastructure"),
+        (75, "Clean energy systems", "efficient energy and industrial systems"),
+        (90, "Frontier research", "frontier science and high-value innovation")
+    ]
+    for name, country in state.get("countries", {}).items():
+        record = programs.setdefault(name, {"unlocked": [], "last_level": float(country.get("tech", 0))})
+        if not isinstance(record, dict):
+            record = {"unlocked": [], "last_level": float(country.get("tech", 0))}
+            programs[name] = record
+        unlocked = record.setdefault("unlocked", [])
+        previous = float(record.get("last_level", country.get("tech", 0)))
+        current = float(country.get("tech", 0))
+        if "last_level" not in record:
+            record["last_level"] = current
+            unlocked.extend(label for threshold, label, _ in milestones if current >= threshold and label not in unlocked)
+            continue
+        for threshold, label, description in milestones:
+            if previous < threshold <= current and label not in unlocked:
+                unlocked.append(label)
+                country["production"] = round(clamp(country.get("production", 50) + 1.2), 2)
+                country["gdp"] = round(country.get("gdp", 0.01) * 1.002, 6)
+                _event(state, "technology",
+                       f"{name} achieved a breakthrough in {label.lower()}, advancing {description}. Productivity and economic competitiveness improved.")
+        record["last_level"] = current
+
+
+def _political_crisis_step(state, name, country, government):
+    """A legitimacy collapse can force a peaceful or institutional change of government."""
+    approval = float(government.get("approval", 50))
+    stability = float(country.get("stability", 50))
+    last_change = int(government.get("last_regime_change", -100))
+    if approval <= 21 and stability <= 29 and state.get("turn", 0) - last_change >= 5:
+        old_government = government.get("government", "Incumbent government")
+        old_opposition = government.get("opposition", "Reform coalition")
+        government["government"] = old_opposition
+        government["opposition"] = old_government
+        government["ideology"] = random.choice([
+            "Reformist", "Liberal", "Social Democratic", "National Conservative"
+        ])
+        government["approval"] = round(random.uniform(38, 52), 1)
+        government["last_regime_change"] = state.get("turn", 0)
+        government["regime_changes"] = government.get("regime_changes", 0) + 1
+        country["stability"] = clamp(stability + 7)
+        country["military"] = clamp(country.get("military", 50) - 1.5)
+        _event(state, "regime_change",
+               f"Government collapse in {name}: {old_government} lost power after a severe legitimacy crisis. {government['government']} took office amid pressure for reform.")
+        return True
+    return False
 
 def _initialize_politics(state):
     politics = state.setdefault("politics", {})
@@ -778,6 +857,8 @@ def _world_events_step(state):
                 _event(state, "election", f"Election in {name}: {result}. Government approval is {government['approval']:.0f}%.")
             government["election_due"] = turn + random.randint(4, 7)
 
+        _political_crisis_step(state, name, country, government)
+
     # A small number of global stories each year, with persistent consequences.
     if not independent or random.random() > 0.58:
         return
@@ -828,6 +909,8 @@ def advance_turn(state, providers=None):
     ensure_organizations(state)
     state.setdefault("ultimatums", [])
     _ensure_sovereignty(state)
+    _initialize_ai_profiles(state)
+    state.setdefault("ai_decisions", [])
     if not state.get("history"):
         _record_history(state)
     state["turn"] += 1
@@ -849,8 +932,16 @@ def advance_turn(state, providers=None):
         apply_action(state, name, d["action"], d.get("target"), d.get("rationale", ""))
         if state["events"]:
             state["events"][-1]["text"] += f" [AI: {p}]"
+        state["ai_decisions"].append({
+            "turn": state["turn"], "country": name,
+            "action": d.get("action"), "target": d.get("target"),
+            "rationale": d.get("rationale", ""), "provider": p,
+            "goal": state.get("ai_profiles", {}).get(name, {}).get("primary_goal", "prosperity")
+        })
+    state["ai_decisions"] = state["ai_decisions"][-1000:]
     _progress_wars(state)
     _economy_step(state)
+    _technology_step(state)
     _update_influence(state)
     _world_events_step(state)
     _record_history(state)
