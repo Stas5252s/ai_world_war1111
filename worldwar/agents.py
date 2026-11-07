@@ -33,6 +33,8 @@ def _fallback(country, state):
 
     def strategic_score(name):
         score = state["relations"][country].get(name, 0)
+        existing_footprint = state.get("influence", {}).get(name, {}).get(country, 0)
+        score += min(15, existing_footprint * 0.15)
         if name in preferred:
             score += 18
         if name in competitors:
