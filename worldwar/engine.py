@@ -760,17 +760,20 @@ def _technology_step(state):
         (90, "Frontier research", "frontier science and high-value innovation")
     ]
     for name, country in state.get("countries", {}).items():
-        record = programs.setdefault(name, {"unlocked": [], "last_level": float(country.get("tech", 0))})
-        if not isinstance(record, dict):
-            record = {"unlocked": [], "last_level": float(country.get("tech", 0))}
-            programs[name] = record
-        unlocked = record.setdefault("unlocked", [])
-        previous = float(record.get("last_level", country.get("tech", 0)))
         current = float(country.get("tech", 0))
+        record = programs.get(name)
+        if not isinstance(record, dict):
+            programs[name] = {
+                "unlocked": [label for threshold, label, _ in milestones if current >= threshold],
+                "last_level": current
+            }
+            continue
+        unlocked = record.setdefault("unlocked", [])
         if "last_level" not in record:
             record["last_level"] = current
             unlocked.extend(label for threshold, label, _ in milestones if current >= threshold and label not in unlocked)
             continue
+        previous = float(record.get("last_level", current))
         for threshold, label, description in milestones:
             if previous < threshold <= current and label not in unlocked:
                 unlocked.append(label)
