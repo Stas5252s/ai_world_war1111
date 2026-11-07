@@ -43,12 +43,11 @@ with st.sidebar:
   st.rerun()
  if st.button('↻ Reset world',use_container_width=True): st.session_state.world=new_world(); st.rerun()
  st.divider(); st.subheader('Navigation')
+ page=st.selectbox('Open section',['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🧠 Intelligence','🌍 World News','🏛️ Politics','🎮 Player intervention','🤖 AI agents','🌐 Influence','📈 History','🧬 Deep simulation'],key='main_navigation')
  dp=st.selectbox('Provider for all', ['Fallback','Ollama','Cloud API']); dm=st.text_input('Default model',placeholder='qwen2.5:3b')
  if st.button('Apply to all countries'):
   for n in countries: st.session_state['provider_'+n]=dp; st.session_state['model_'+n]=dm
   st.success('Settings applied.')
-with st.sidebar:
- page=st.selectbox('Open section',['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🧠 Intelligence','🌍 World News','🏛️ Politics','🎮 Player intervention','🤖 AI agents','🌐 Influence','📈 History','🧬 Deep simulation'],key='main_navigation')
 interval_seconds={'1 second':1,'2 seconds':2,'5 seconds':5}[st.session_state.get('live_interval','2 seconds')]
 turns_per_update=int(st.session_state.get('live_steps',1))
 @st.fragment(run_every=f"{interval_seconds}s" if st.session_state.get('live_mode',False) else None)
@@ -57,12 +56,21 @@ def render_simulation():
   cfg={n:{'provider':st.session_state.get('provider_'+n,'Fallback'),'model':st.session_state.get('model_'+n,'')} for n in countries}
   for _ in range(int(st.session_state.get('live_steps',1))):
    advance_turn(world,cfg)
+ global independent_countries, territory_counts, annexed_territories
+ independent_countries=[n for n in countries if sovereignty.get(n,n)==n]
+ territory_counts={n:sum(1 for owner in sovereignty.values() if owner==n) for n in countries}
+ annexed_territories=sum(1 for territory,owner in sovereignty.items() if territory!=owner)
  cols=st.columns(5)
  cols[0].metric('Current turn',world['turn'])
  cols[1].metric('Sovereign states',len(independent_countries))
  cols[2].metric('Annexed territories',annexed_territories)
  cols[3].metric('World GDP (USD T)',f"{sum(c['gdp'] for c in countries.values()):.2f}")
  cols[4].metric('Active wars',sum(1 for w in world.get('wars',{}).values() if w.get('status')=='active'))
+ if world.get('events'):
+  with st.expander('Live world feed · latest events',expanded=st.session_state.get('live_mode',False)):
+   for event in reversed(world.get('events',[])[-8:]):
+    st.markdown(f"**Turn {event.get('turn',0)} · {str(event.get('kind','WORLD')).replace('_',' ').upper()}**  ")
+    st.write(event.get('text',''))
  if page == '🌐 World map':
    influence_data=world.get('influence',{})
    influence_leaders={}
