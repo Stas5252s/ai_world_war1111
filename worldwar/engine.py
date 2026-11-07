@@ -683,6 +683,7 @@ def _economy_step(s):
             growth -= 0.002
         growth = max(-0.06, min(0.045, growth))
         c["gdp"] = round(max(0.00001, gdp * (1 + growth)), 6)
+        c["gdp_growth"] = round(growth * 100, 2)
 
         production_change = (c["tech"] - 50) * 0.006 + (c["resources"] - 50) * 0.003 + len(s.get("technology", {}).get(name, {}).get("unlocked", [])) * 0.025
         production_change += trade_bonus * 80 - (1.25 * war_count)
