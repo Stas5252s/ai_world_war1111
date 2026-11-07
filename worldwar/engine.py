@@ -2,6 +2,7 @@ import copy
 import random
 from .data import COUNTRIES
 from .agents import choose_action
+from .deep_sim import advance_deep_systems, initialize_deep_systems
 
 def _record_history(state):
     """Store a compact yearly snapshot for historical charts."""
@@ -913,6 +914,7 @@ def advance_turn(state, providers=None):
     state.setdefault("ultimatums", [])
     _ensure_sovereignty(state)
     _initialize_ai_profiles(state)
+    initialize_deep_systems(state)
     state.setdefault("ai_decisions", [])
     if not state.get("history"):
         _record_history(state)
@@ -947,6 +949,7 @@ def advance_turn(state, providers=None):
     _technology_step(state)
     _update_influence(state)
     _world_events_step(state)
+    advance_deep_systems(state)
     _record_history(state)
     return state
 
