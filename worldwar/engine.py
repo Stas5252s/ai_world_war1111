@@ -402,8 +402,12 @@ def _finish_war(s, w, winner, reason, annex=False):
     w["status"] = "ended"
     w["winner"] = winner
     w["ended"] = s["turn"]
+    w["end_reason"] = reason
+    w["final_score"] = round(w.get("score", 0), 2)
     loser_side = w["side_b"] if winner == "side_a" else w["side_a"]
     winner_side = w["side_a"] if winner == "side_a" else w["side_b"]
+    w["winning_participants"] = list(winner_side)
+    w["losing_participants"] = list(loser_side)
     ownership = _ensure_sovereignty(s)
     for n in winner_side:
         c = s["countries"][n]
