@@ -26,6 +26,128 @@ def _country_mentions(question, countries):
     return found
 
 
+
+def _control_question(state, question, countries):
+    """Reconstruct how one country gained control of another from war and event records."""
+    import re
+
+    q = question.casefold()
+    if not any(term in q for term in ("контроллер", "контролировать", "под контрол", "захватил", "захватила", "annexed", "control of")):
+        return None
+
+    aliases = {
+        "China": ["китай", "китая", "китаем"],
+        "India": ["индия", "индии", "индию"],
+        "Germany": ["германия", "германии", "германию"],
+        "United States": ["сша", "соединенные штаты", "америка", "америки"],
+        "Russia": ["россия", "россии", "россию"],
+        "Ukraine": ["украина", "украины", "украину"],
+        "France": ["франция", "франции", "францию"],
+        "United Kingdom": ["британия", "великобритания", "англия"],
+        "Japan": ["япония", "японии", "японию"],
+        "Iran": ["иран", "ирана", "ираном"],
+        "Israel": ["израиль", "израиля", "израилем"],
+        "Turkey": ["турция", "турции", "турцию"],
+        "Poland": ["польша", "польши", "польшу"],
+        "South Korea": ["южная корея", "южной кореи"],
+        "North Korea": ["северная корея", "северной кореи"]
+    }
+    found = []
+    for name in countries:
+        variants = [name] + aliases.get(name, [])
+        positions = [q.find(v.casefold()) for v in variants if v and q.find(v.casefold()) >= 0]
+        if positions:
+            found.append((min(positions), name))
+    found.sort()
+    if len(found) < 2:
+        return None
+
+    controller, territory = found[0][1], found[1][1]
+    ownership = state.get("sovereignty", {})
+    current_owner = ownership.get(territory, territory)
+    wars = state.get("wars", {})
+    events = state.get("events", [])
+    evidence = []
+    causes = []
+
+    related_wars = []
+    for war in wars.values():
+        changes = war.get("territory_changes", [])
+        changed_target = any(x.get("territory") == territory and x.get("to") == controller for x in changes)
+        annexed_target = territory in war.get("annexed_territories", []) and war.get("annexing_country") == controller
+        if changed_target or annexed_target or (
+            controller in war.get("participants", []) and territory in war.get("participants", [])
+            and war.get("status") == "active"
+        ):
+            related_wars.append(war)
+
+    if current_owner == controller:
+        causes.append(f"Current control confirmed: {controller} controls {territory} in the sovereignty records.")
+    else:
+        causes.append(f"Current control does not match the question: {territory} is currently controlled by {current_owner}, not {controller}.")
+
+    if related_wars:
+        for war in sorted(related_wars, key=lambda w: w.get("started", 0)):
+            wid = str(war.get("id", "?"))
+            causes.append(
+                f"War #{wid}: started on turn {war.get('started', '?')}; "
+                f"participants: {', '.join(war.get('participants', []))}; "
+                f"status: {war.get('status', 'unknown')}."
+            )
+            changes = [x for x in war.get("territory_changes", []) if x.get("territory") == territory]
+            for change in sorted(changes, key=lambda x: x.get("turn", 0)):
+                evidence.append(
+                    f"Turn {change.get('turn', '?')} · Front-line shift: "
+                    f"{territory} changed hands from {change.get('from', '?')} to {change.get('to', '?')}."
+                )
+            if territory in war.get("annexed_territories", []) and war.get("annexing_country") == controller:
+                evidence.append(
+                    f"Turn {war.get('ended', '?')} · Annexation: {controller} annexed {territory} after winning War #{wid}."
+                )
+            if war.get("status") == "ended":
+                winner = war.get("winner", "unknown")
+                winning_side = war.get("side_a", []) if winner == "side_a" else war.get("side_b", [])
+                causes.append(
+                    f"War #{wid} ended on turn {war.get('ended', '?')}; winning side: "
+                    f"{', '.join(winning_side)}. {war.get('reason', '')}".strip()
+                )
+
+            # The simulation's documented battle model: military, technology and stability,
+            # with a random swing. Do not present it as a real-world explanation.
+            if controller in war.get("participants", []):
+                causes.append(
+                    f"In this simulation, war strength is calculated from military (55%), "
+                    f"technology (25%) and stability (20%), with a random swing each turn. "
+                    f"The territory-change rule selects the strongest military country on the winning side."
+                )
+
+    matching_events = []
+    for event in events:
+        text = event.get("text", "")
+        low = text.casefold()
+        if territory.casefold() in low and (
+            controller.casefold() in low or "war #" in low or "control" in low or "annex" in low
+        ):
+            matching_events.append(event)
+    for event in sorted(matching_events, key=lambda e: e.get("turn", 0)):
+        line = f"Turn {event.get('turn', '?')} · {event.get('kind', 'event')}: {event.get('text', '')}"
+        if line not in evidence:
+            evidence.append(line)
+
+    if not related_wars and not matching_events:
+        causes.append("The current save does not contain a recorded war or event that proves how this control transfer happened.")
+    summary = (
+        "This is a reconstruction from the simulation's ownership records, war records and event log. "
+        "It separates recorded events from the game's abstract rules; it does not invent missing steps."
+    )
+    return {
+        "title": f"How {controller} gained control of {territory}",
+        "summary": summary,
+        "causes": causes[:16],
+        "evidence": evidence[:30],
+        "confidence": "Strong evidence" if related_wars or matching_events else "Insufficient historical records"
+    }
+
 def explain_question(state, question):
     question = (question or "").strip()
     if len(question) < 4:
@@ -33,6 +155,9 @@ def explain_question(state, question):
 
     countries = state.get("countries", {})
     names = _country_mentions(question, countries)
+    control_report = _control_question(state, question, countries)
+    if control_report:
+        return control_report
     events = state.get("events", [])
     relations = state.get("relations", {})
     wars = state.get("wars", {})
