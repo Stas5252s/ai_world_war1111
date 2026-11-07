@@ -563,6 +563,6 @@ def render_simulation():
    else:
     st.caption('No global systemic crises or major deep-system milestones have been recorded yet.')
 
-  st.divider(); st.caption('Population and GDP baselines use 2024 data where available; stability, military, technology and resource indices are game estimates.')
+ st.divider(); st.caption('Population and GDP baselines use 2024 data where available; stability, military, technology and resource indices are game estimates.')
 
 render_simulation()
