@@ -62,10 +62,12 @@ def initialize_deep_systems(state):
 def _update_state_memory(state):
     events = state.get("events", [])
     deep = state.setdefault("deep_systems", {})
-    start = min(int(deep.get("last_event_index", 0)), len(events))
+    last_turn = int(deep.get("last_memory_turn", state.get("turn", 0) - 1))
     memory = state.setdefault("state_memory", {})
     countries = state.get("countries", {})
-    for event in events[start:]:
+    for event in events:
+        if int(event.get("turn", 0)) <= last_turn:
+            continue
         text = str(event.get("text", ""))
         involved = [name for name in countries if name in text]
         if len(involved) < 2:
@@ -91,7 +93,7 @@ def _update_state_memory(state):
                     "last_event": "", "last_turn": 0, "events": 0
                 })
                 reverse.update(record)
-    deep["last_event_index"] = len(events)
+    deep["last_memory_turn"] = state.get("turn", 0)
     # Old saves and long simulations should not accumulate unbounded memory.
     for name in list(memory):
         partners = memory[name]
@@ -172,7 +174,8 @@ def _supply_chain_step(state):
 def _demographic_step(state):
     countries = state.get("countries", {})
     demographics = state.setdefault("demographics", {})
-    independent = set(state.get("sovereignty", {}).keys())
+    ownership = state.get("sovereignty", {})
+    independent = {n for n in countries if ownership.get(n, n) == n}
     for name, country in countries.items():
         record = demographics.setdefault(name, {
             "working_age": 63.0, "urbanization": 55.0, "net_migration": 0.0,
