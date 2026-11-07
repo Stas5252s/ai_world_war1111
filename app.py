@@ -39,7 +39,7 @@ with st.sidebar:
   for n in countries: st.session_state['provider_'+n]=dp; st.session_state['model_'+n]=dm
   st.success('Settings applied.')
 cols=st.columns(4); cols[0].metric('Sovereign states',len(independent_countries)); cols[1].metric('Annexed territories',annexed_territories); cols[2].metric('World GDP (USD T)',f"{sum(c['gdp'] for c in countries.values()):.2f}"); cols[3].metric('Active wars',sum(1 for w in world.get('wars',{}).values() if w.get('status')=='active'))
-tmap,tc,tx,td,te,tp,ta,ti,th=st.tabs(['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🎮 Player intervention','🤖 AI agents','🌐 Influence','📈 History'])
+tmap,tc,tx,td,te,tn,tpol,tp,ta,ti,th=st.tabs(['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🌍 World News','🏛️ Politics','🎮 Player intervention','🤖 AI agents','🌐 Influence','📈 History'])
 with tmap:
  influence_data=world.get('influence',{})
  influence_leaders={}
@@ -228,6 +228,53 @@ with te:
  for e in reversed(world['events'][-60:]):
   st.markdown(f"**TURN {e['turn']} · {e['kind'].upper()}**  \n{e['text']}")
   if e.get('rationale'): st.caption('AI rationale: '+e['rationale'])
+with tn:
+ st.subheader('World News')
+ st.caption('Headlines are generated from events that actually happened in this simulation.')
+ events=list(reversed(world.get('events',[])))
+ if events:
+  featured=events[0]
+  st.markdown(f"## {featured.get('text','')}")
+  st.caption(f"TURN {featured.get('turn',0)} · {featured.get('kind','world').upper()}")
+  st.divider()
+  news_filter=st.multiselect('Filter news categories',sorted({e.get('kind','world') for e in events}),default=[])
+  filtered=[e for e in events if not news_filter or e.get('kind','world') in news_filter]
+  for event in filtered[:80]:
+   with st.container(border=True):
+    st.caption(f"TURN {event.get('turn',0)} · {event.get('kind','world').upper()}")
+    st.markdown(f"**{event.get('text','')}**")
+    if event.get('rationale'):
+     st.caption(event['rationale'])
+ else:
+  st.info('No news yet. Advance the simulation to generate the first headlines.')
+
+with tpol:
+ st.subheader('Domestic politics')
+ st.caption('Fictional political systems. Approval, elections and government changes evolve with each simulated year.')
+ politics=world.get('politics',{})
+ if not politics:
+  st.info('Political profiles will be initialized on the next turn.')
+ else:
+  political_rows=[]
+  for name,government in politics.items():
+   if name in countries and sovereignty.get(name,name)==name:
+    political_rows.append({'Country':name,'Government':government.get('government','—'),'Ideology':government.get('ideology','—'),'Approval (%)':government.get('approval',0),'Next election':government.get('election_due',0),'Elections held':government.get('elections',0)})
+  political_df=pd.DataFrame(political_rows).sort_values('Approval (%)')
+  st.markdown('### Governments under pressure')
+  st.dataframe(political_df,hide_index=True,use_container_width=True,height=430)
+  political_country=st.selectbox('Inspect domestic politics',list(countries),key='politics_country')
+  government=politics.get(political_country,{})
+  if government:
+   st.markdown(f"### {political_country}")
+   metrics=st.columns(4)
+   metrics[0].metric('Government',government.get('government','—'))
+   metrics[1].metric('Approval',f"{government.get('approval',0):.1f}%")
+   metrics[2].metric('Opposition',government.get('opposition','—'))
+   metrics[3].metric('Next election',f"Turn {government.get('election_due','—')}")
+   st.write(f"**Ideology:** {government.get('ideology','—')}")
+   st.write(f"**Elections held:** {government.get('elections',0)}")
+   st.caption('Election outcomes and political approval are simulated, not predictions about real governments.')
+
 with tp:
  st.subheader('Direct intervention'); st.write('Issue a game-level policy order to any government.')
  if not independent_countries:
