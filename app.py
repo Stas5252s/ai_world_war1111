@@ -52,7 +52,6 @@ with st.sidebar:
   for n in countries: st.session_state['provider_'+n]=dp; st.session_state['model_'+n]=dm
   st.success('Settings applied.')
 interval_seconds={'1 second':1,'2 seconds':2,'5 seconds':5}[st.session_state.get('live_interval','2 seconds')]
-turns_per_update=int(st.session_state.get('live_steps',1))
 @st.fragment(run_every=f"{interval_seconds}s" if st.session_state.get('live_mode',False) else None)
 def render_simulation():
  if st.session_state.get('live_mode',False):
@@ -66,6 +65,10 @@ def render_simulation():
  independent_countries=[n for n in countries if sovereignty.get(n,n)==n]
  territory_counts={n:sum(1 for owner in sovereignty.values() if owner==n) for n in countries}
  annexed_territories=sum(1 for territory,owner in sovereignty.items() if territory!=owner)
+ if st.session_state.get('live_mode',False):
+  st.markdown(f"**LIVE SIMULATION** · {st.session_state.get('live_steps',1)} turn(s) every {st.session_state.get('live_interval','2 seconds')} · 1 turn = 1 simulated year")
+ else:
+  st.caption('Simulation paused · Advance turns manually or enable Live simulation in the sidebar.')
  cols=st.columns(5)
  cols[0].metric('Current turn',world['turn'])
  cols[1].metric('Sovereign states',len(independent_countries))
