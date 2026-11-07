@@ -942,7 +942,7 @@ def advance_turn(state, providers=None):
             "turn": state["turn"], "country": name,
             "action": d.get("action"), "target": d.get("target"),
             "rationale": d.get("rationale", ""), "provider": p,
-            "goal": state.get("ai_profiles", {}).get(name, {}).get("primary_goal", "prosperity")
+            "goal": state.get("strategic_plans", {}).get(name, {}).get("goal", state.get("ai_profiles", {}).get(name, {}).get("primary_goal", "prosperity"))
         })
     state["ai_decisions"] = state["ai_decisions"][-1000:]
     _progress_wars(state)
