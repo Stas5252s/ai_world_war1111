@@ -29,6 +29,16 @@ def initialize_deep_systems(state):
     corporations = state.setdefault("corporate_presence", {})
     for name, country in countries.items():
         profile = state.setdefault("ai_profiles", {}).setdefault(name, {})
+        priorities = " ".join(country.get("worldview", {}).get("priorities", [])).lower()
+        if not profile.get("primary_goal"):
+            if any(word in priorities for word in ("technology", "innovation", "research", "digital")):
+                profile["primary_goal"] = "innovation"
+            elif any(word in priorities for word in ("security", "deterrence", "defence", "defense", "sovereignty", "regime")):
+                profile["primary_goal"] = "security"
+            elif any(word in priorities for word in ("influence", "leadership", "diplomacy", "regional", "alliances")):
+                profile["primary_goal"] = "influence"
+            else:
+                profile["primary_goal"] = "prosperity"
         goal = profile.get("primary_goal", "prosperity")
         plans.setdefault(name, {
             "goal": goal, "horizon": 12, "started": state.get("turn", 0),
