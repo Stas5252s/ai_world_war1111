@@ -488,6 +488,22 @@ with tdeep:
   st.dataframe(pd.DataFrame(memory_rows),hide_index=True,use_container_width=True)
  else:
   st.info('No bilateral memories recorded yet. Diplomatic and conflict events will create them as the world evolves.')
+ st.markdown('### Information environment')
+ info_record=world.get('information_resilience',{}).get(deep_country,{})
+ info_cols=st.columns(3)
+ info_cols[0].metric('Information resilience',f"{info_record.get('resilience',0):.1f}/100")
+ info_cols[1].metric('External pressure',f"{info_record.get('external_pressure',0):.1f}/100")
+ info_cols[2].metric('Pressure gap',f"{info_record.get('pressure_gap',0):.1f}")
+ st.caption('Foreign influence can create domestic information pressure. Resilience grows gradually with technology and stability.')
+ st.markdown('### Diplomatic negotiations')
+ negotiations=world.get('negotiations',[])
+ pending=[p for p in negotiations if p.get('status')=='pending']
+ st.metric('Pending proposals',len(pending))
+ if negotiations:
+  negotiation_rows=[{'From':p.get('from'),'To':p.get('to'),'Proposal':p.get('type','').replace('_',' ').title(),'Status':p.get('status','').title(),'Opened':p.get('created_turn'),'Expires':p.get('expires')} for p in reversed(negotiations[-30:])]
+  st.dataframe(pd.DataFrame(negotiation_rows),hide_index=True,use_container_width=True)
+ else:
+  st.caption('Diplomatic proposals will appear as countries develop constructive relationships.')
  st.markdown('### Global crises')
  crisis_events=[e for e in reversed(world.get('events',[])) if e.get('kind') in ('global_crisis','default','research','strategy')]
  if crisis_events:
