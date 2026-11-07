@@ -18,7 +18,7 @@ independent_countries=[n for n in countries if sovereignty.get(n,n)==n]
 territory_counts={n:sum(1 for owner in sovereignty.values() if owner==n) for n in countries}
 annexed_territories=sum(1 for territory,owner in sovereignty.items() if territory!=owner)
 st.markdown('<style>.block-container{padding-top:1.2rem}div[data-testid="stMetric"]{background:rgba(120,120,120,.08);padding:12px;border-radius:10px}</style>',unsafe_allow_html=True)
-st.title('🌍 AI WORLD WAR'); st.caption('Autonomous geopolitical sandbox · MVP 0.1 · Fictional game abstractions')
+st.title('🌍 AI WORLD WAR'); st.caption('Autonomous geopolitical sandbox · MVP 0.2 · Deep simulation · Fictional game abstractions')
 with st.sidebar:
  st.header('Simulation control'); st.metric('Current turn',world['turn'])
  if st.button('▶ Advance one turn',type='primary',use_container_width=True):
