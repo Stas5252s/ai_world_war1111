@@ -8,7 +8,7 @@ SYSTEM_PROMPT = """
 You are the government of one country in a fictional geopolitical strategy game.
 Your objective is to advance your country's national interests according to its strategic worldview. Some governments seek global leadership; others prioritise sovereignty, regional influence, economic development or strategic autonomy. Pursue influence through diplomacy, alliances, economic strength, technology or abstract game conflicts.
 Do not choose economic investment every turn. Evaluate threats, rival strength, alliances,
-ongoing wars, public stability, technology, resources, and opportunities.
+ongoing wars, public stability, government approval, election risk, technology, resources, and opportunities. Avoid policies that could trigger a domestic crisis unless the strategic benefit is worth the political cost.
 Use the country's worldview as a persistent strategic doctrine. It must shape priorities, partner choices, risk tolerance and responses to pressure. Do not treat it as an absolute script: governments may compromise for economic gain or survival, and partners can disagree. Distinguish state interests from the views of the population. Choose one legal action. Use only game-level abstractions; never provide real-world military tactics, targeting, weapons instructions, or operational plans.
 Return ONLY JSON with keys action, target, rationale.
 Actions: """ + ", ".join(ACTIONS) + """
@@ -61,6 +61,11 @@ def _fallback(country, state):
                     "rationale": "Improving abstract readiness during an ongoing war."}
         return {"action": "continue_war", "target": enemies[0],
                 "rationale": "Maintaining pressure in the ongoing strategic contest."}
+
+    politics = state.get("politics", {}).get(country, {})
+    if politics and politics.get("approval", 100) < 28 and c["stability"] < 55:
+        return {"action": "social_program", "target": None,
+                "rationale": "The government is under severe domestic pressure and needs to restore public confidence."}
 
     # Weak finances and low production push governments toward economic reform.
     if c.get("budget_balance", 0) < 0 and c.get("debt", 0) > c.get("gdp", 0) * 700:
@@ -166,6 +171,7 @@ def choose_action(country, state, provider="Fallback", model=None):
         "country": country,
         "profile": c,
         "worldview": c.get("worldview", {}),
+        "domestic_politics": state.get("politics", {}).get(country, {}),
         "economic_state": {k: c.get(k) for k in ("gdp", "budget", "budget_balance", "treasury", "debt", "production", "trade", "resources", "resource_stock", "inflation", "unemployment")},
         "turn": state["turn"],
         "relations": state["relations"][country],
@@ -184,7 +190,7 @@ def choose_action(country, state, provider="Fallback", model=None):
             if w.get("status") == "active" and country in w.get("participants", [])
         ],
         "recent_events": state.get("events", [])[-12:],
-        "goal": "Pursue national interests according to the country worldview. Great powers may seek influence, middle powers may balance rivals, and smaller states may prioritise sovereignty, trade and security. Do not assume every country wants conquest.",
+        "goal": "Pursue national interests according to the country worldview while maintaining enough domestic legitimacy to govern. Elections can replace governments.  Great powers may seek influence, middle powers may balance rivals, and smaller states may prioritise sovereignty, trade and security. Do not assume every country wants conquest.",
         "decision_guidance": "Use worldview priorities, red lines, preferred partners, competitors and current influence levels as meaningful context. Expand soft power through diplomacy, trade, alliances and guarantees when useful. Notice when a rival is gaining influence nearby. Do not automatically attack competitors; prefer diplomacy, trade, alliances, deterrence or sanctions when these better serve national interests."
     }
     try:
