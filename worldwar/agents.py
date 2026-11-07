@@ -186,6 +186,7 @@ def _strategic_fallback(country, state):
     debt = float(c.get("debt", 0))
     gdp = max(float(c.get("gdp", 0.01)), 0.00001)
     plan = state.get("strategic_plans", {}).get(country, {})
+    goal = plan.get("goal", goal)
     memories = state.get("state_memory", {}).get(country, {})
     supply = state.get("supply_chains", {}).get(country, {})
     financial = state.get("financial_system", {}).get(country, {})
