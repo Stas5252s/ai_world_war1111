@@ -40,7 +40,7 @@ with st.sidebar:
   for n in countries: st.session_state['provider_'+n]=dp; st.session_state['model_'+n]=dm
   st.success('Settings applied.')
 cols=st.columns(4); cols[0].metric('Sovereign states',len(independent_countries)); cols[1].metric('Annexed territories',annexed_territories); cols[2].metric('World GDP (USD T)',f"{sum(c['gdp'] for c in countries.values()):.2f}"); cols[3].metric('Active wars',sum(1 for w in world.get('wars',{}).values() if w.get('status')=='active'))
-tmap,tc,tx,td,te,tn,tpol,tp,ta,ti,th=st.tabs(['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🌍 World News','🏛️ Politics','🎮 Player intervention','🤖 AI agents','🌐 Influence','📈 History'])
+tmap,tc,tx,td,te,twi,tn,tpol,tp,ta,ti,th=st.tabs(['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🧠 Intelligence','🌍 World News','🏛️ Politics','🎮 Player intervention','🤖 AI agents','🌐 Influence','📈 History'])
 with tmap:
  influence_data=world.get('influence',{})
  influence_leaders={}
@@ -229,8 +229,8 @@ with te:
  for e in reversed(world['events'][-60:]):
   st.markdown(f"**TURN {e['turn']} · {e['kind'].upper()}**  \n{e['text']}")
   if e.get('rationale'): st.caption('AI rationale: '+e['rationale'])
-with tn:
- st.subheader('World Intelligence')
+with twi:
+ st.subheader('Ask the world')
  st.caption('Ask why something happened. The report searches the simulation state, diplomacy, economy, wars and recorded events.')
  question=st.text_input('Ask the world',placeholder='Why did China and India become enemies?',key='world_question')
  if st.button('Investigate',type='primary',key='investigate_world') and question.strip():
