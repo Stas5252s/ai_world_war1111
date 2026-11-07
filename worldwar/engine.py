@@ -101,13 +101,23 @@ def new_world(seed=7):
     for a, b in rivalries:
         if a in relations and b in relations:
             relations[a][b] = relations[b][a] = -48
+    organizations = {
+        "UN": {"name": "United Nations", "type": "diplomatic", "description": "A global forum for diplomacy, sovereignty and peaceful dispute resolution.", "members": [n for n in names], "founded": 0},
+        "NATO": {"name": "NATO", "type": "defense", "description": "A collective-defence organization. Members support one another if attacked in the simulation.", "members": [n for n in ["United States", "Canada", "United Kingdom", "France", "Germany", "Italy", "Poland", "Turkey", "Norway", "Denmark", "Netherlands", "Belgium", "Spain", "Portugal", "Greece", "Czechia", "Hungary", "Romania", "Bulgaria", "Slovakia", "Slovenia", "Croatia", "Estonia", "Latvia", "Lithuania", "Albania", "Montenegro", "North Macedonia", "Finland", "Sweden"] if n in countries], "founded": 0},
+        "EU": {"name": "European Union", "type": "economic", "description": "Economic integration, shared markets and coordinated policy.", "members": [n for n in ["Germany", "France", "Italy", "Poland", "Spain", "Netherlands", "Belgium", "Sweden", "Finland", "Denmark", "Ireland", "Austria", "Portugal", "Greece", "Czechia", "Hungary", "Romania", "Bulgaria", "Slovakia", "Slovenia", "Croatia", "Estonia", "Latvia", "Lithuania", "Luxembourg", "Cyprus", "Malta"] if n in countries], "founded": 0},
+        "BRICS": {"name": "BRICS", "type": "economic", "description": "A forum for economic cooperation among major emerging economies.", "members": [n for n in ["Brazil", "Russia", "India", "China", "South Africa", "Egypt", "Ethiopia", "Indonesia", "Iran", "United Arab Emirates"] if n in countries], "founded": 0},
+        "ASEAN": {"name": "ASEAN", "type": "economic", "description": "Southeast Asian regional cooperation and economic integration.", "members": [n for n in ["Indonesia", "Malaysia", "Singapore", "Thailand", "Vietnam", "Philippines", "Cambodia", "Laos", "Myanmar", "Brunei"] if n in countries], "founded": 0},
+        "AU": {"name": "African Union", "type": "diplomatic", "description": "Continental cooperation, diplomacy and regional stability.", "members": [n for n in names if countries[n].get("iso") in {"DZA","AGO","BEN","BWA","BFA","BDI","CPV","CMR","CAF","TCD","COM","COG","COD","CIV","DJI","EGY","GNQ","ERI","SWZ","ETH","GAB","GMB","GHA","GIN","GNB","KEN","LSO","LBR","LBY","MDG","MWI","MLI","MRT","MUS","MAR","MOZ","NAM","NER","NGA","RWA","STP","SEN","SYC","SLE","SOM","ZAF","SSD","SDN","TZA","TGO","TUN","UGA","ZMB","ZWE"}], "founded": 0},
+        "G7": {"name": "Group of Seven", "type": "economic", "description": "A forum for advanced industrial economies to coordinate economic policy.", "members": [n for n in ["United States", "Canada", "United Kingdom", "France", "Germany", "Italy", "Japan"] if n in countries], "founded": 0},
+        "OPEC": {"name": "OPEC", "type": "energy", "description": "Coordination among major oil-exporting countries.", "members": [n for n in ["Saudi Arabia", "Iran", "Iraq", "Kuwait", "United Arab Emirates", "Venezuela", "Nigeria", "Algeria", "Libya", "Angola", "Congo", "Gabon", "Equatorial Guinea"] if n in countries], "founded": 0}
+    }
     state = {
         "turn": 0, "countries": countries, "relations": relations,
         "alliances": {n: [] for n in names},
         "wars": {}, "next_war_id": 1,
         "influence": {target: {actor: max(0.0, (relations[target][actor] + 20) * 0.18) for actor in names if actor != target} for target in names},
         "guarantees": [], "trade_agreements": [], "sanctions": [], "blocs": {},
-        "next_bloc_id": 1, "ultimatums": [],
+        "next_bloc_id": 1, "ultimatums": [], "organizations": organizations,
         "sovereignty": {n: n for n in names},
         "events": [{"turn": 0, "kind": "world",
                     "text": "The simulation begins. Every government seeks global influence."}],
@@ -115,6 +125,44 @@ def new_world(seed=7):
     }
     _record_history(state)
     return state
+
+def _normalize_organizations(s):
+    organizations = s.setdefault("organizations", {})
+    if not isinstance(organizations, dict):
+        organizations = {}
+        s["organizations"] = organizations
+    for org_id, org in organizations.items():
+        if not isinstance(org, dict):
+            organizations[org_id] = {"name": str(org_id), "type": "diplomatic", "description": "", "members": []}
+            org = organizations[org_id]
+        members = org.get("members", [])
+        if not isinstance(members, (list, tuple, set)):
+            members = []
+        org["members"] = list(dict.fromkeys(n for n in members if n in s.get("countries", {})))
+        org.setdefault("name", str(org_id))
+        org.setdefault("type", "diplomatic")
+        org.setdefault("description", "")
+    return organizations
+
+
+def _organization_membership(s, country, organization, action):
+    organizations = _normalize_organizations(s)
+    if country not in s.get("countries", {}) or organization not in organizations:
+        return
+    org = organizations[organization]
+    members = org["members"]
+    if action == "join":
+        if country in members:
+            _event(s, "organization", f"{country} is already a member of {org['name']}.")
+            return
+        members.append(country)
+        _event(s, "organization", f"{country} joined {org['name']}.")
+    elif action == "leave":
+        if country not in members:
+            return
+        members.remove(country)
+        _event(s, "organization", f"{country} left {org['name']}.")
+
 
 def _ensure_sovereignty(s):
     """Keep old saved sessions compatible with the territorial-control system."""
@@ -297,6 +345,17 @@ def _start_war(s, attacker, defender):
                 s["wars"][wid]["side_b"].append(guarantor)
                 s["wars"][wid]["participants"].append(guarantor)
                 _event(s, "diplomacy", f"{guarantor} honored its guarantee to {defender} and joined war #{wid}.")
+
+    # Members of collective-defence organizations support an attacked member.
+    organizations = _normalize_organizations(s)
+    for org in organizations.values():
+        if org.get("type") != "defense" or defender not in org.get("members", []):
+            continue
+        for member in org["members"]:
+            if member not in (attacker, defender) and member in independent and member not in s["wars"][wid]["participants"] and not _active_war_between(s, member, attacker):
+                s["wars"][wid]["side_b"].append(member)
+                s["wars"][wid]["participants"].append(member)
+                _event(s, "organization", f"{member} joined {defender}'s side in war #{wid} under {org['name']} collective defence.")
 
     # Mutual-defense allies join automatically, unless already fighting on the other side.
     for ally in list(s.get("alliances", {}).get(defender, [])):
@@ -548,6 +607,13 @@ def _economy_step(s):
         target = sanction.get("target")
         if target in s["countries"]:
             sanctioned_targets[target] = sanctioned_targets.get(target, 0) + 1
+    for org in _normalize_organizations(s).values():
+        if org.get("type") in ("economic", "energy"):
+            members = [n for n in org.get("members", []) if n in trade_partners]
+            for i, a in enumerate(members):
+                for b in members[i + 1:]:
+                    trade_partners[a].add(b)
+                    trade_partners[b].add(a)
     for agreement in s.get("trade_agreements", []):
         pair = agreement.get("countries", [])
         if len(pair) == 2 and all(n in trade_partners for n in pair):
