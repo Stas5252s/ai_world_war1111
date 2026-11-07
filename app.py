@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from worldwar.engine import new_world,advance_turn,player_intervention,ensure_organizations,organization_membership
 from worldwar.data import ACTION_LABELS
+from worldwar.intelligence import explain_question
 st.set_page_config(page_title='AI WORLD WAR',page_icon='🌍',layout='wide')
 if 'world' not in st.session_state: st.session_state.world=new_world()
 world=st.session_state.world; countries=world['countries']
@@ -229,7 +230,29 @@ with te:
   st.markdown(f"**TURN {e['turn']} · {e['kind'].upper()}**  \n{e['text']}")
   if e.get('rationale'): st.caption('AI rationale: '+e['rationale'])
 with tn:
+ st.subheader('World Intelligence')
+ st.caption('Ask why something happened. The report searches the simulation state, diplomacy, economy, wars and recorded events.')
+ question=st.text_input('Ask the world',placeholder='Why did China and India become enemies?',key='world_question')
+ if st.button('Investigate',type='primary',key='investigate_world') and question.strip():
+  st.session_state['world_intelligence_result']=explain_question(world,question)
+ report=st.session_state.get('world_intelligence_result')
+ if report:
+  st.markdown(f"### {report.get('title','Investigation')}")
+  st.write(report.get('summary',''))
+  causes=report.get('causes',[])
+  if causes:
+   st.markdown('#### What the simulation shows')
+   for cause in causes:
+    st.markdown(f"- {cause}")
+  evidence=report.get('evidence',[])
+  if evidence:
+   st.markdown('#### Supporting event history')
+   for item in evidence:
+    st.markdown(f"- {item}")
+  st.caption(report.get('confidence',''))
+ st.divider()
  st.subheader('World News')
+
  st.caption('Headlines are generated from events that actually happened in this simulation.')
  events=list(reversed(world.get('events',[])))
  if events:
