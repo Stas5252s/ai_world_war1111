@@ -3,12 +3,14 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from worldwar.engine import new_world,advance_turn,player_intervention,ensure_organizations,organization_membership
+from worldwar.deep_sim import initialize_deep_systems
 from worldwar.data import ACTION_LABELS
 from worldwar.intelligence import explain_question
 st.set_page_config(page_title='AI WORLD WAR',page_icon='🌍',layout='wide')
 if 'world' not in st.session_state: st.session_state.world=new_world()
 world=st.session_state.world; countries=world['countries']
 ensure_organizations(world)
+initialize_deep_systems(world)
 world.setdefault('sovereignty',{n:n for n in countries})
 for n in countries: world['sovereignty'].setdefault(n,n)
 sovereignty=world['sovereignty']
@@ -40,7 +42,7 @@ with st.sidebar:
   for n in countries: st.session_state['provider_'+n]=dp; st.session_state['model_'+n]=dm
   st.success('Settings applied.')
 cols=st.columns(4); cols[0].metric('Sovereign states',len(independent_countries)); cols[1].metric('Annexed territories',annexed_territories); cols[2].metric('World GDP (USD T)',f"{sum(c['gdp'] for c in countries.values()):.2f}"); cols[3].metric('Active wars',sum(1 for w in world.get('wars',{}).values() if w.get('status')=='active'))
-tmap,tc,tx,td,te,twi,tn,tpol,tp,ta,ti,th=st.tabs(['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🧠 Intelligence','🌍 World News','🏛️ Politics','🎮 Player intervention','🤖 AI agents','🌐 Influence','📈 History'])
+tmap,tc,tx,td,te,twi,tn,tpol,tp,ta,ti,th,tdeep=st.tabs(['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🧠 Intelligence','🌍 World News','🏛️ Politics','🎮 Player intervention','🤖 AI agents','🌐 Influence','📈 History','🧬 Deep simulation'])
 with tmap:
  influence_data=world.get('influence',{})
  influence_leaders={}
@@ -434,5 +436,65 @@ with th:
    st.info('This country has no compatible historical data yet. New snapshots will appear after the next turn.')
   st.markdown('### Recorded turns')
   st.dataframe(history_df.set_index('Turn'),use_container_width=True)
+
+with tdeep:
+ st.subheader('Interconnected world systems')
+ st.caption('These are simulated indicators, not real-world forecasts. Every system updates automatically after each turn and influences the wider simulation.')
+ plans=world.get('strategic_plans',{}); supply=world.get('supply_chains',{}); demographics=world.get('demographics',{}); finance=world.get('financial_system',{}); research=world.get('research_programs',{}); corporations=world.get('corporate_presence',{})
+ deep_country=st.selectbox('Inspect country systems',list(countries),key='deep_country')
+ dc=countries[deep_country]; plan=plans.get(deep_country,{}); sup=supply.get(deep_country,{}); demo=demographics.get(deep_country,{}); fin=finance.get(deep_country,{}); rp=research.get(deep_country,{}); corp=corporations.get(deep_country,{})
+ metrics=st.columns(4)
+ metrics[0].metric('Strategic objective',str(plan.get('goal','—')).title())
+ metrics[1].metric('Plan progress',f"{plan.get('progress',0):.1f}%")
+ metrics[2].metric('Supply disruption risk',f"{sup.get('disruption_risk',0):.1f}/100")
+ metrics[3].metric('Credit rating',f"{fin.get('credit_rating',0):.1f}/100")
+ st.markdown('### National strategy')
+ st.write(f"**Goal:** {plan.get('goal','Not initialized')} · **Horizon:** {plan.get('horizon',12)} turns · **Started:** turn {plan.get('started',0)}")
+ st.progress(max(0,min(100,int(plan.get('progress',0)))))
+ st.caption('The AI reviews its strategy every five turns and can change priorities when economic or political conditions deteriorate.')
+ st.markdown('### Economy and supply chains')
+ econ=st.columns(4)
+ econ[0].metric('Import dependency',f"{sup.get('import_dependency',0):.1f}/100")
+ econ[1].metric('Partner coverage',f"{sup.get('partner_coverage',0):.1f}/100")
+ econ[2].metric('Debt / GDP',f"{fin.get('last_debt_ratio',0):.2f}x")
+ econ[3].metric('Financial risk',f"{fin.get('risk',0):.1f}/100")
+ st.write('**Trade partners:** '+(', '.join(sup.get('partners',[])) if sup.get('partners') else 'No structured trade partners'))
+ st.caption('Supply risk affects production and inflation. Severe debt and low treasury reserves can trigger a sovereign restructuring event.')
+ st.markdown('### Population and society')
+ pop=st.columns(4)
+ pop[0].metric('Population',f"{dc.get('population',0):,.2f}M")
+ pop[1].metric('Working-age share',f"{demo.get('working_age',0):.1f}%")
+ pop[2].metric('Urbanization',f"{demo.get('urbanization',0):.1f}%")
+ pop[3].metric('Net migration',f"{demo.get('net_migration',0):+.2f}%")
+ st.caption(f"Dependency ratio: {demo.get('dependency_ratio',0):.3f}. Migration responds to stability, unemployment and economic performance.")
+ st.markdown('### Research and technology')
+ branches=rp.get('branches',{})
+ if branches:
+  research_df=pd.DataFrame([{'Research branch':k,'Progress':v} for k,v in branches.items()]).sort_values('Progress',ascending=False)
+  st.bar_chart(research_df.set_index('Research branch'))
+ st.write('**Breakthroughs:** '+(', '.join(rp.get('unlocked',[])) if rp.get('unlocked') else 'No branch breakthroughs yet'))
+ st.markdown('### Corporations and investment')
+ corp_cols=st.columns(3)
+ corp_cols[0].metric('Corporate capital',f"{corp.get('capital',0):,.1f}B")
+ corp_cols[1].metric('Foreign investment',f"{corp.get('foreign_investment',0):,.2f}B")
+ corp_cols[2].metric('Jobs index',f"{corp.get('jobs_index',0):.1f}/100")
+ st.caption('Corporate capital and foreign investment are abstract indices. They affect productive capacity rather than representing individual real companies.')
+ st.markdown('### Historical memory')
+ memories=world.get('state_memory',{}).get(deep_country,{})
+ memory_rows=[]
+ for partner,record in sorted(memories.items(),key=lambda item:item[1].get('last_turn',0),reverse=True)[:20]:
+  memory_rows.append({'Other country':partner,'Trust':record.get('trust',0),'Grievance':record.get('grievance',0),'Cooperation':record.get('cooperation',0),'Last interaction':record.get('last_turn',0),'Events':record.get('events',0)})
+ if memory_rows:
+  st.dataframe(pd.DataFrame(memory_rows),hide_index=True,use_container_width=True)
+ else:
+  st.info('No bilateral memories recorded yet. Diplomatic and conflict events will create them as the world evolves.')
+ st.markdown('### Global crises')
+ crisis_events=[e for e in reversed(world.get('events',[])) if e.get('kind') in ('global_crisis','default','research','strategy')]
+ if crisis_events:
+  for event in crisis_events[:15]:
+   st.write(f"**Turn {event.get('turn',0)} · {event.get('kind','').replace('_',' ').title()}**  ")
+   st.write(event.get('text',''))
+ else:
+  st.caption('No global systemic crises or major deep-system milestones have been recorded yet.')
 
 st.divider(); st.caption('Population and GDP baselines use 2024 data where available; stability, military, technology and resource indices are game estimates.')
