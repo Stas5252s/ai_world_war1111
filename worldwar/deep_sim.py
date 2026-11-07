@@ -306,6 +306,98 @@ def _global_crisis_step(state):
            "Countries with weaker resilience, resources or technology experienced the largest simulated effects.")
 
 
+
+def _negotiation_step(state):
+    """Resolve persistent diplomatic proposals instead of treating all diplomacy as instant."""
+    turn = state.get("turn", 0)
+    proposals = state.setdefault("negotiations", [])
+    relations = state.get("relations", {})
+    countries = state.get("countries", {})
+    memory = state.get("state_memory", {})
+    agreements = {
+        tuple(sorted(item.get("countries", [])))
+        for item in state.get("trade_agreements", [])
+        if len(item.get("countries", [])) == 2
+    }
+    # Resolve proposals that have been pending since an earlier turn.
+    for proposal in proposals:
+        if proposal.get("status") != "pending":
+            continue
+        a, b = proposal.get("from"), proposal.get("to")
+        if a not in countries or b not in countries:
+            proposal["status"] = "cancelled"
+            continue
+        relation = float(relations.get(b, {}).get(a, 0))
+        grievance = float(memory.get(b, {}).get(a, {}).get("grievance", 0))
+        trust = float(memory.get(b, {}).get(a, {}).get("trust", 0))
+        score = relation + trust * 0.25 - grievance * 0.35
+        if score >= 42:
+            proposal["status"] = "accepted"
+            proposal["resolved_turn"] = turn
+            if proposal.get("type") == "trade_agreement":
+                pair = tuple(sorted((a, b)))
+                if pair not in agreements:
+                    state.setdefault("trade_agreements", []).append({"countries": [a, b], "turn": turn, "source": "negotiation"})
+                    agreements.add(pair)
+                relations[a][b] = _clamp(relations[a][b] + 3, -100, 100)
+                relations[b][a] = _clamp(relations[b][a] + 3, -100, 100)
+                _event(state, "negotiation", f"{a} and {b} accepted a negotiated trade agreement after diplomatic talks.")
+            else:
+                relations[a][b] = _clamp(relations[a][b] + 2, -100, 100)
+                relations[b][a] = _clamp(relations[b][a] + 2, -100, 100)
+                _event(state, "negotiation", f"{a} and {b} completed a diplomatic summit and agreed to maintain dialogue.")
+        elif turn >= int(proposal.get("expires", turn + 1)):
+            proposal["status"] = "rejected"
+            proposal["resolved_turn"] = turn
+            _event(state, "negotiation", f"{b} rejected a diplomatic proposal from {a}; relations cooled slightly.")
+            relations[a][b] = _clamp(relations[a][b] - 1, -100, 100)
+    # Every third turn, governments with a constructive relationship can open talks.
+    if turn % 3 == 0 and len([p for p in proposals if p.get("status") == "pending"]) < 5:
+        independent = [n for n in countries if state.get("sovereignty", {}).get(n, n) == n]
+        candidates = []
+        for i, a in enumerate(independent):
+            for b in independent[i + 1:]:
+                pair = tuple(sorted((a, b)))
+                if pair in agreements:
+                    continue
+                if any(p.get("status") == "pending" and {p.get("from"), p.get("to")} == {a, b} for p in proposals):
+                    continue
+                if any(w.get("status") == "active" and a in w.get("participants", []) and b in w.get("participants", []) for w in state.get("wars", {}).values()):
+                    continue
+                score = (float(relations.get(a, {}).get(b, 0)) + float(relations.get(b, {}).get(a, 0))) / 2
+                if score >= 48:
+                    candidates.append((score + random.random() * 8, a, b))
+        candidates.sort(reverse=True)
+        for _, a, b in candidates[:2]:
+            kind = "trade_agreement"
+            proposals.append({
+                "id": len(proposals) + 1, "from": a, "to": b,
+                "type": kind, "created_turn": turn,
+                "expires": turn + 2, "status": "pending"
+            })
+            _event(state, "negotiation", f"{a} opened diplomatic negotiations with {b} on a trade agreement.")
+    state["negotiations"] = proposals[-150:]
+
+
+def _information_environment_step(state):
+    """Model abstract foreign information pressure and domestic resilience."""
+    influence = state.get("influence", {})
+    resilience = state.setdefault("information_resilience", {})
+    politics = state.get("politics", {})
+    for name, country in state.get("countries", {}).items():
+        record = resilience.setdefault(name, {"resilience": 45.0, "external_pressure": 0.0})
+        external = sum(float(value) for actor, value in influence.get(name, {}).items() if actor != name)
+        external = min(100.0, external / 8.0)
+        record["external_pressure"] = round(external, 1)
+        tech = float(country.get("tech", 40))
+        stability = float(country.get("stability", 50))
+        record["resilience"] = round(_clamp(record.get("resilience", 45) + (tech - 50) * 0.002 + (stability - 50) * 0.001, 5, 95), 1)
+        pressure = max(0.0, external - record["resilience"])
+        government = politics.get(name, {})
+        if pressure > 35 and government:
+            government["approval"] = round(_clamp(government.get("approval", 50) - min(0.18, pressure * 0.002), 5, 95), 1)
+        record["pressure_gap"] = round(pressure, 1)
+
 def advance_deep_systems(state):
     initialize_deep_systems(state)
     _update_state_memory(state)
@@ -315,5 +407,7 @@ def advance_deep_systems(state):
     _finance_step(state)
     _research_step(state)
     _corporate_step(state)
+    _negotiation_step(state)
+    _information_environment_step(state)
     _global_crisis_step(state)
     return state
