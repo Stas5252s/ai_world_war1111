@@ -23,9 +23,12 @@ with st.sidebar:
  st.header('Simulation control')
  live_mode=st.toggle('Live simulation',key='live_mode',help='The world advances automatically while this is enabled.')
  live_interval=st.selectbox('Update interval',['1 second','2 seconds','5 seconds'],index=1,key='live_interval',disabled=not live_mode)
- live_steps=st.selectbox('Turns per update',[1,2,5],index=0,key='live_steps',disabled=not live_mode)
+ live_steps=st.selectbox('Turns per update',[1,2,3],index=0,key='live_steps',disabled=not live_mode)
+ live_ai=st.selectbox('Live AI source',['Fallback (fast)','Configured providers'],index=0,key='live_ai',disabled=not live_mode)
  if live_mode:
   st.success('LIVE · Simulation running')
+  if live_ai == 'Configured providers':
+   st.warning('Configured cloud providers may generate API usage on every turn.')
  else:
   st.caption('PAUSED · Manual control')
  cfg={n:{'provider':st.session_state.get('provider_'+n,'Fallback'),'model':st.session_state.get('model_'+n,'')} for n in countries}
@@ -53,7 +56,10 @@ turns_per_update=int(st.session_state.get('live_steps',1))
 @st.fragment(run_every=f"{interval_seconds}s" if st.session_state.get('live_mode',False) else None)
 def render_simulation():
  if st.session_state.get('live_mode',False):
-  cfg={n:{'provider':st.session_state.get('provider_'+n,'Fallback'),'model':st.session_state.get('model_'+n,'')} for n in countries}
+  if st.session_state.get('live_ai','Fallback (fast)') == 'Configured providers':
+   cfg={n:{'provider':st.session_state.get('provider_'+n,'Fallback'),'model':st.session_state.get('model_'+n,'')} for n in countries}
+  else:
+   cfg={}
   for _ in range(int(st.session_state.get('live_steps',1))):
    advance_turn(world,cfg)
  global independent_countries, territory_counts, annexed_territories
