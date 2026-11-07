@@ -2,11 +2,12 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from worldwar.engine import new_world,advance_turn,player_intervention
+from worldwar.engine import new_world,advance_turn,player_intervention,ensure_organizations,organization_membership
 from worldwar.data import ACTION_LABELS
 st.set_page_config(page_title='AI WORLD WAR',page_icon='🌍',layout='wide')
 if 'world' not in st.session_state: st.session_state.world=new_world()
 world=st.session_state.world; countries=world['countries']
+ensure_organizations(world)
 world.setdefault('sovereignty',{n:n for n in countries})
 for n in countries: world['sovereignty'].setdefault(n,n)
 sovereignty=world['sovereignty']
@@ -172,6 +173,35 @@ with td:
    st.info(f'{alliance_country} has no active mutual-defense alliances.')
  else:
   st.info('No mutual-defense alliances have formed yet. Governments can create them as the simulation advances.')
+ st.markdown('### International organizations')
+ organizations=ensure_organizations(world)
+ org_rows=[]
+ for org_id,org in organizations.items():
+  org_rows.append({'Organization':org['name'],'Type':org.get('type','diplomatic').title(),'Members':len(org.get('members',[])),'Membership':', '.join(org.get('members',[]))})
+ st.dataframe(pd.DataFrame(org_rows).set_index('Organization'),use_container_width=True)
+ org_id=st.selectbox('Inspect organization',list(organizations),format_func=lambda key:organizations[key]['name'],key='inspect_organization')
+ org=organizations[org_id]
+ st.markdown(f"**{org['name']}**")
+ st.write(org.get('description',''))
+ st.caption(f"Category: {org.get('type','diplomatic').title()} · Members: {len(org.get('members',[]))}")
+ members=org.get('members',[])
+ if members:
+  st.write(', '.join(sorted(members)))
+ else:
+  st.caption('No members.')
+ st.markdown('#### Manage membership')
+ member_country=st.selectbox('Country',independent_countries,key='organization_country') if independent_countries else None
+ if member_country:
+  left,right=st.columns(2)
+  with left:
+   if st.button('Join organization',use_container_width=True,disabled=member_country in members,key='join_org'):
+    organization_membership(world,member_country,org_id,'join')
+    st.rerun()
+  with right:
+   if st.button('Leave organization',use_container_width=True,disabled=member_country not in members,key='leave_org'):
+    organization_membership(world,member_country,org_id,'leave')
+    st.rerun()
+ st.caption('Membership changes are player interventions. Collective defence and economic cooperation are applied by the simulation.')
  st.markdown('### International blocs')
  if blocs:
   for bloc in blocs.values():
