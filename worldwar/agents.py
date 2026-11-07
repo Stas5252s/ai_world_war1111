@@ -167,7 +167,14 @@ def choose_action(country, state, provider="Fallback", model=None):
         "economic_state": {k: c.get(k) for k in ("gdp", "budget", "budget_balance", "treasury", "debt", "production", "trade", "resources", "resource_stock", "inflation", "unemployment")},
         "turn": state["turn"],
         "relations": state["relations"][country],
-        "alliances": state.get("alliances", {}).get(country, []),
+        "alliances": state.get("alliances", {}).get(country, []),        "foreign_influence_on_us": sorted(
+            state.get("influence", {}).get(country, {}).items(),
+            key=lambda item: item[1], reverse=True
+        )[:5],
+        "our_influence_abroad": sorted(
+            [(target, scores.get(country, 0)) for target, scores in state.get("influence", {}).items() if target != country],
+            key=lambda item: item[1], reverse=True
+        )[:5],
         "active_wars": [
             {k: w.get(k) for k in ("id", "participants", "progress", "status", "attacker", "defender")}
             for w in state.get("wars", {}).values()
@@ -175,7 +182,7 @@ def choose_action(country, state, provider="Fallback", model=None):
         ],
         "recent_events": state.get("events", [])[-12:],
         "goal": "Pursue national interests according to the country worldview. Great powers may seek influence, middle powers may balance rivals, and smaller states may prioritise sovereignty, trade and security. Do not assume every country wants conquest.",
-        "decision_guidance": "Use worldview priorities, red lines, preferred partners and competitors as meaningful context. Do not automatically attack competitors; prefer diplomacy, trade, alliances, deterrence or sanctions when these better serve national interests."
+        "decision_guidance": "Use worldview priorities, red lines, preferred partners, competitors and current influence levels as meaningful context. Expand soft power through diplomacy, trade, alliances and guarantees when useful. Notice when a rival is gaining influence nearby. Do not automatically attack competitors; prefer diplomacy, trade, alliances, deterrence or sanctions when these better serve national interests."
     }
     try:
         if provider == "Ollama":
