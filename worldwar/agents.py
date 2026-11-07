@@ -185,6 +185,10 @@ def _strategic_fallback(country, state):
     treasury = float(c.get("treasury", 0))
     debt = float(c.get("debt", 0))
     gdp = max(float(c.get("gdp", 0.01)), 0.00001)
+    plan = state.get("strategic_plans", {}).get(country, {})
+    memories = state.get("state_memory", {}).get(country, {})
+    supply = state.get("supply_chains", {}).get(country, {})
+    financial = state.get("financial_system", {}).get(country, {})
     active_wars = [
         w for w in state.get("wars", {}).values()
         if w.get("status") == "active" and country in w.get("participants", [])
@@ -216,6 +220,8 @@ def _strategic_fallback(country, state):
         or c.get("inflation", 0) > 12
         or c.get("unemployment", 0) > 15
     )
+    supply_risk = float(supply.get("disruption_risk", 0))
+    credit_risk = float(financial.get("risk", 0))
     threat_level = max(
         [max(0, -float(relations.get(n, 0))) for n in competitors if n in independent and n != country]
         or [0]
@@ -231,10 +237,14 @@ def _strategic_fallback(country, state):
     economy_score += max(0, 55 - production) * 0.45
     economy_score += 7 if economic_stress else 0
     economy_score += 5 if treasury < gdp * 12 else 0
+    economy_score += max(0, credit_risk - 45) * 0.12
+    economy_score += max(0, supply_risk - 40) * 0.10
+    if plan.get("goal") == "prosperity": economy_score += 7
     offer("invest_economy", None, economy_score,
           "The government is strengthening productive capacity and its long-term economic base.")
 
     research_score = 15 + (16 if goal == "innovation" else 0) + max(0, 75 - tech) * 0.32
+    if plan.get("goal") == "innovation": research_score += 8
     offer("research", None, research_score,
           "The government is investing in research to improve long-term national capabilities.")
 
@@ -265,6 +275,8 @@ def _strategic_fallback(country, state):
         if target == country:
             continue
         relation = float(relations.get(target, 0))
+        memory = memories.get(target, {})
+        relation += float(memory.get("trust", 0)) * 0.12 - float(memory.get("grievance", 0)) * 0.10
         is_preferred = target in preferred
         is_rival = target in competitors
         target_military = float(state["countries"][target].get("military", 50))
@@ -331,6 +343,11 @@ def choose_action(country, state, provider="Fallback", model=None):
         "profile": c,
         "worldview": c.get("worldview", {}),
         "long_term_strategy": state.get("ai_profiles", {}).get(country, {}),
+        "strategic_plan": state.get("strategic_plans", {}).get(country, {}),
+        "state_memory": state.get("state_memory", {}).get(country, {}),
+        "supply_chain": state.get("supply_chains", {}).get(country, {}),
+        "financial_risk": state.get("financial_system", {}).get(country, {}),
+        "research_program": state.get("research_programs", {}).get(country, {}),
         "domestic_politics": state.get("politics", {}).get(country, {}),
         "economic_state": {k: c.get(k) for k in ("gdp", "budget", "budget_balance", "treasury", "debt", "production", "trade", "resources", "resource_stock", "inflation", "unemployment")},
         "turn": state["turn"],
