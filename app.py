@@ -504,8 +504,21 @@ with tdeep:
   st.dataframe(pd.DataFrame(negotiation_rows),hide_index=True,use_container_width=True)
  else:
   st.caption('Diplomatic proposals will appear as countries develop constructive relationships.')
+ st.markdown('### Covert influence and sovereignty movements')
+ covert=world.get('covert_operations',[])[-12:]
+ if covert:
+  covert_rows=[{'Turn':x.get('turn'),'Actor':x.get('actor'),'Target':x.get('target'),'Result':'Success' if x.get('success') else 'Contained','Success chance':x.get('chance')} for x in reversed(covert)]
+  st.dataframe(pd.DataFrame(covert_rows),hide_index=True,use_container_width=True)
+ else:
+  st.caption('No abstract covert influence contests have occurred yet.')
+ autonomy=world.get('autonomy_movements',{})
+ if autonomy:
+  st.write('**Active self-determination movements:**')
+  st.dataframe(pd.DataFrame([{'Territory':name,'Pressure':record.get('pressure',0),'Since':record.get('since',0)} for name,record in autonomy.items()]),hide_index=True,use_container_width=True)
+ else:
+  st.caption('No occupied territory currently has a sustained self-determination movement.')
  st.markdown('### Global crises')
- crisis_events=[e for e in reversed(world.get('events',[])) if e.get('kind') in ('global_crisis','default','research','strategy')]
+ crisis_events=[e for e in reversed(world.get('events',[])) if e.get('kind') in ('global_crisis','default','research','strategy','covert_influence','independence','negotiation')]
  if crisis_events:
   for event in crisis_events[:15]:
    st.write(f"**Turn {event.get('turn',0)} · {event.get('kind','').replace('_',' ').title()}**  ")
