@@ -167,7 +167,8 @@ def choose_action(country, state, provider="Fallback", model=None):
         "economic_state": {k: c.get(k) for k in ("gdp", "budget", "budget_balance", "treasury", "debt", "production", "trade", "resources", "resource_stock", "inflation", "unemployment")},
         "turn": state["turn"],
         "relations": state["relations"][country],
-        "alliances": state.get("alliances", {}).get(country, []),        "foreign_influence_on_us": sorted(
+        "alliances": state.get("alliances", {}).get(country, []),
+        "foreign_influence_on_us": sorted(
             state.get("influence", {}).get(country, {}).items(),
             key=lambda item: item[1], reverse=True
         )[:5],
