@@ -398,7 +398,7 @@ def choose_action(country, state, provider="Fallback", model=None):
             "peace", "continue_war"
         }
         if needs_target and target is None:
-            return _fallback(country, state), "Fallback"
+            return _strategic_fallback(country, state), "Fallback"
         return {
             "action": d["action"],
             "target": target,
