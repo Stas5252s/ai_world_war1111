@@ -250,7 +250,8 @@ with twi:
    for item in evidence:
     st.markdown(f"- {item}")
   st.caption(report.get('confidence',''))
- st.divider()
+
+with tn:
  st.subheader('World News')
 
  st.caption('Headlines are generated from events that actually happened in this simulation.')
