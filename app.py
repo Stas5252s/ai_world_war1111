@@ -38,12 +38,20 @@ with st.sidebar:
   for n in countries: st.session_state['provider_'+n]=dp; st.session_state['model_'+n]=dm
   st.success('Settings applied.')
 cols=st.columns(4); cols[0].metric('Sovereign states',len(independent_countries)); cols[1].metric('Annexed territories',annexed_territories); cols[2].metric('World GDP (USD T)',f"{sum(c['gdp'] for c in countries.values()):.2f}"); cols[3].metric('Active wars',sum(1 for w in world.get('wars',{}).values() if w.get('status')=='active'))
-tmap,tc,tx,td,te,tp,ta,th=st.tabs(['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🎮 Player intervention','🤖 AI agents','📈 History'])
+tmap,tc,tx,td,te,tp,ta,ti,th=st.tabs(['🌐 World map','📊 Countries','💹 Economy','🤝 Diplomacy','📰 World events','🎮 Player intervention','🤖 AI agents','🌐 Influence','📈 History'])
 with tmap:
- df=pd.DataFrame([{'Country':n,'ISO':c['iso'],'GDP':c['gdp'],'Stability':c['stability'],'Military':c['military'],'Controller':sovereignty.get(n,n)} for n,c in countries.items()])
- map_mode=st.radio('Map layer',['Stability','Territorial control'],horizontal=True)
+ influence_data=world.get('influence',{})
+ influence_leaders={}
+ for target in countries:
+  scores=influence_data.get(target,{})
+  leader,score=max(scores.items(),key=lambda item:item[1]) if scores else ('No dominant influence',0)
+  influence_leaders[target]=(leader if score>=12 else 'No dominant influence',score)
+ df=pd.DataFrame([{'Country':n,'ISO':c['iso'],'GDP':c['gdp'],'Stability':c['stability'],'Military':c['military'],'Controller':sovereignty.get(n,n),'Influence leader':influence_leaders[n][0],'Influence score':influence_leaders[n][1]} for n,c in countries.items()])
+ map_mode=st.radio('Map layer',['Stability','Territorial control','Influence'],horizontal=True)
  if map_mode=='Territorial control':
   fig=px.choropleth(df,locations='ISO',color='Controller',hover_name='Country',hover_data={'Controller':True,'GDP':':.3f','Stability':':.1f','Military':':.1f','ISO':False},color_discrete_sequence=px.colors.qualitative.Dark24,projection='natural earth',title='Territorial control · simulated ownership')
+ elif map_mode=='Influence':
+  fig=px.choropleth(df,locations='ISO',color='Influence leader',hover_name='Country',hover_data={'Influence leader':True,'Influence score':':.1f','Controller':True,'ISO':False},color_discrete_sequence=px.colors.qualitative.Dark24,projection='natural earth',title='Leading foreign influence · simulated soft power')
  else:
   fig=px.choropleth(df,locations='ISO',color='Stability',hover_name='Country',hover_data={'Controller':True,'GDP':':.3f','Stability':':.1f','Military':':.1f','ISO':False},color_continuous_scale='RdYlGn',range_color=(0,100),projection='natural earth',title='National stability · simulated values')
  coords={n:(c['lon'],c['lat']) for n,c in countries.items() if c.get('lon') is not None and c.get('lat') is not None}
@@ -184,6 +192,44 @@ with ta:
   st.text_input('Model override',key='model_'+agent_country,placeholder='Use environment default')
   st.caption('Profile: '+countries[agent_country]['style'])
   st.caption('Economic profile: GDP '+str(round(countries[agent_country]['gdp'],3))+'T · production '+str(round(countries[agent_country].get('production',0),1))+'/100')
+with ti:
+ st.subheader('Global spheres of influence')
+ st.caption('Influence is a fictional soft-power index. It changes through diplomatic relations, trade, alliances, blocs, guarantees, sanctions and abstract conflict. It is not a real-world measurement.')
+ influence_data=world.get('influence',{})
+ if not influence_data:
+  st.info('Influence tracking will begin after the next simulated turn.')
+ else:
+  totals={}
+  for target,scores in influence_data.items():
+   if target in independent_countries:
+    for actor,value in scores.items():
+     if actor != target and actor in independent_countries:
+      totals[actor]=totals.get(actor,0)+float(value)
+  ranking=sorted(totals.items(),key=lambda item:item[1],reverse=True)
+  top=st.columns(4)
+  top[0].metric('Countries tracked',len(influence_data))
+  top[1].metric('Influence centers',sum(1 for value in totals.values() if value>=100))
+  top[2].metric('Leading power',ranking[0][0] if ranking else '—')
+  top[3].metric('Influence score',f"{ranking[0][1]:,.1f}" if ranking else '0')
+  if ranking:
+   rank_df=pd.DataFrame([{'Power':name,'Total influence':value} for name,value in ranking[:15]])
+   st.markdown('### Leading influence networks')
+   st.plotly_chart(px.bar(rank_df,x='Total influence',y='Power',orientation='h',title='Aggregate foreign influence across independent states'),use_container_width=True)
+  st.markdown('### Who influences a country?')
+  influence_target=st.selectbox('Select country',list(countries),key='influence_target')
+  target_scores=influence_data.get(influence_target,{})
+  target_rows=sorted([{'Power':name,'Influence':value,'Relations':world.get('relations',{}).get(influence_target,{}).get(name,0)} for name,value in target_scores.items() if name in countries],key=lambda item:item['Influence'],reverse=True)
+  if target_rows:
+   target_df=pd.DataFrame(target_rows[:15])
+   st.plotly_chart(px.bar(target_df,x='Influence',y='Power',orientation='h',title=f'Foreign influence in {influence_target}'),use_container_width=True)
+   leader=target_rows[0]
+   if leader['Influence']>=12:
+    st.info(f"Leading external influence: {leader['Power']} · {leader['Influence']:.1f}/100")
+   else:
+    st.caption('No foreign power has established a dominant influence position yet.')
+   st.dataframe(pd.DataFrame(target_rows),hide_index=True,use_container_width=True)
+  else:
+   st.caption('No foreign influence data for this country yet.')
 with th:
  st.subheader('Simulation history')
  st.caption('One turn represents one simulated year. History starts at turn 0 and is recorded after every completed turn.')
