@@ -310,13 +310,34 @@ with tp:
   if st.button('Execute intervention',type='primary'): player_intervention(world,country,action,target); st.success('Intervention recorded.'); st.rerun()
  st.info('Conflict is an abstract game contest. No real-world tactics or operational military guidance are modelled.')
 with ta:
- st.subheader('Configure individual presidents'); st.caption('Fallback works offline. Ollama runs locally. Cloud API requires credentials.')
+ st.subheader('Configure individual governments')
+ st.caption('Fallback AI now evaluates national doctrine, economic pressure, domestic legitimacy, partners and strategic threats. Ollama runs locally; Cloud API requires credentials.')
  agent_country=st.selectbox('Country to configure',list(countries),key='agent_country')
  with st.container(border=True):
   st.selectbox('Provider',['Fallback','Ollama','Cloud API'],key='provider_'+agent_country)
   st.text_input('Model override',key='model_'+agent_country,placeholder='Use environment default')
   st.caption('Profile: '+countries[agent_country]['style'])
   st.caption('Economic profile: GDP '+str(round(countries[agent_country]['gdp'],3))+'T · production '+str(round(countries[agent_country].get('production',0),1))+'/100')
+ ai_profile=world.get('ai_profiles',{}).get(agent_country,{})
+ goal_labels={'prosperity':'Economic prosperity','security':'National security','influence':'Diplomatic influence','innovation':'Technology leadership'}
+ st.markdown('### Long-term national strategy')
+ st.metric('Primary strategic goal',goal_labels.get(ai_profile.get('primary_goal'),'Not initialized'))
+ st.caption(ai_profile.get('doctrine','Strategic profile is initialized on the first simulated turn.'))
+ unlocked=world.get('technology',{}).get(agent_country,{}).get('unlocked',[])
+ st.markdown('### Technology milestones')
+ st.write(', '.join(unlocked) if unlocked else 'No breakthroughs recorded yet.')
+ st.caption('Breakthroughs unlock permanent productivity and growth bonuses.')
+ st.markdown('### Recent government decisions')
+ decision_rows=[]
+ for decision in reversed(world.get('ai_decisions',[])):
+  if decision.get('country')==agent_country:
+   decision_rows.append({'Turn':decision.get('turn'),'Action':decision.get('action'),'Target':decision.get('target') or '—','Strategic goal':goal_labels.get(decision.get('goal'),decision.get('goal')),'Provider':decision.get('provider'),'Reason':decision.get('rationale','')})
+  if len(decision_rows)>=20: break
+ if decision_rows:
+  st.dataframe(pd.DataFrame(decision_rows),hide_index=True,use_container_width=True)
+ else:
+  st.info('No AI decisions recorded yet. Advance the simulation to build this country\'s decision history.')
+ st.caption('AI decisions are strategic game abstractions, not real-world policy forecasts.')
 with ti:
  st.subheader('Global spheres of influence')
  st.caption('Influence is a fictional soft-power index. It changes through diplomatic relations, trade, alliances, blocs, guarantees, sanctions and abstract conflict. It is not a real-world measurement.')
