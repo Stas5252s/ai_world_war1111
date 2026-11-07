@@ -396,8 +396,11 @@ def _information_environment_step(state):
     politics = state.get("politics", {})
     for name, country in state.get("countries", {}).items():
         record = resilience.setdefault(name, {"resilience": 45.0, "external_pressure": 0.0})
-        external = sum(float(value) for actor, value in influence.get(name, {}).items() if actor != name)
-        external = min(100.0, external / 8.0)
+        external = max(
+            [float(value) for actor, value in influence.get(name, {}).items() if actor != name]
+            or [0.0]
+        ) * 1.6
+        external = min(100.0, external)
         record["external_pressure"] = round(external, 1)
         tech = float(country.get("tech", 40))
         stability = float(country.get("stability", 50))
