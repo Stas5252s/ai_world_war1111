@@ -282,7 +282,7 @@ with tpol:
   political_rows=[]
   for name,government in politics.items():
    if name in countries and sovereignty.get(name,name)==name:
-    political_rows.append({'Country':name,'Government':government.get('government','—'),'Ideology':government.get('ideology','—'),'Approval (%)':government.get('approval',0),'Next election':government.get('election_due',0),'Elections held':government.get('elections',0)})
+    political_rows.append({'Country':name,'Government':government.get('government','—'),'Ideology':government.get('ideology','—'),'Approval (%)':government.get('approval',0),'Next election':government.get('election_due',0),'Elections held':government.get('elections',0),'Regime changes':government.get('regime_changes',0)})
   political_df=pd.DataFrame(political_rows).sort_values('Approval (%)')
   st.markdown('### Governments under pressure')
   st.dataframe(political_df,hide_index=True,use_container_width=True,height=430)
@@ -290,11 +290,12 @@ with tpol:
   government=politics.get(political_country,{})
   if government:
    st.markdown(f"### {political_country}")
-   metrics=st.columns(4)
+   metrics=st.columns(5)
    metrics[0].metric('Government',government.get('government','—'))
    metrics[1].metric('Approval',f"{government.get('approval',0):.1f}%")
    metrics[2].metric('Opposition',government.get('opposition','—'))
    metrics[3].metric('Next election',f"Turn {government.get('election_due','—')}")
+   metrics[4].metric('Regime changes',government.get('regime_changes',0))
    st.write(f"**Ideology:** {government.get('ideology','—')}")
    st.write(f"**Elections held:** {government.get('elections',0)}")
    st.caption('Election outcomes and political approval are simulated, not predictions about real governments.')
