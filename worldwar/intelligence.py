@@ -109,7 +109,7 @@ def _control_question(state, question, countries):
                 winning_side = war.get("side_a", []) if winner == "side_a" else war.get("side_b", [])
                 causes.append(
                     f"War #{wid} ended on turn {war.get('ended', '?')}; winning side: "
-                    f"{', '.join(winning_side)}. {war.get('reason', '')}".strip()
+                    f"{', '.join(winning_side)}. {war.get('end_reason', '')} Final score: {war.get('final_score', 'not recorded')}.".strip()
                 )
 
             # The simulation's documented battle model: military, technology and stability,
