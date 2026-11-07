@@ -2,7 +2,28 @@
 
 def _country_mentions(question, countries):
     q = question.casefold()
-    return [name for name in countries if name.casefold() in q]
+    aliases = {
+        "China": ["китай", "китая", "китаем"],
+        "India": ["индия", "индии", "индию"],
+        "Germany": ["германия", "германии", "германию"],
+        "United States": ["сша", "соединенные штаты", "америка", "америки"],
+        "Russia": ["россия", "россии", "россию"],
+        "Ukraine": ["украина", "украины", "украину"],
+        "France": ["франция", "франции", "францию"],
+        "United Kingdom": ["британия", "великобритания", "англия"],
+        "Japan": ["япония", "японии", "японию"],
+        "Iran": ["иран", "ирана", "ираном"],
+        "Israel": ["израиль", "израиля", "израилем"],
+        "Turkey": ["турция", "турции", "турцию"],
+        "Poland": ["польша", "польши", "польшу"],
+        "South Korea": ["южная корея", "южной кореи"],
+        "North Korea": ["северная корея", "северной кореи"]
+    }
+    found = [name for name in countries if name.casefold() in q]
+    for name, variants in aliases.items():
+        if name in countries and any(alias in q for alias in variants) and name not in found:
+            found.append(name)
+    return found
 
 
 def explain_question(state, question):
