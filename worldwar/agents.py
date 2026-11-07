@@ -348,6 +348,8 @@ def choose_action(country, state, provider="Fallback", model=None):
         "supply_chain": state.get("supply_chains", {}).get(country, {}),
         "financial_risk": state.get("financial_system", {}).get(country, {}),
         "research_program": state.get("research_programs", {}).get(country, {}),
+        "pending_negotiations": [p for p in state.get("negotiations", []) if p.get("status") == "pending" and country in (p.get("from"), p.get("to"))],
+        "information_environment": state.get("information_resilience", {}).get(country, {}),
         "domestic_politics": state.get("politics", {}).get(country, {}),
         "economic_state": {k: c.get(k) for k in ("gdp", "budget", "budget_balance", "treasury", "debt", "production", "trade", "resources", "resource_stock", "inflation", "unemployment")},
         "turn": state["turn"],
