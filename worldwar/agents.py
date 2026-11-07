@@ -162,15 +162,175 @@ def _fallback(country, state):
     return {"action": "invest_economy", "target": None,
             "rationale": "Strengthening the economic base needed for long-term influence."}
 
+
+def _strategic_fallback(country, state):
+    """Score-based government AI: doctrine, domestic conditions and external threats."""
+    c = state["countries"][country]
+    worldview = c.get("worldview", {})
+    profile = state.get("ai_profiles", {}).get(country, {})
+    goal = profile.get("primary_goal", "prosperity")
+    preferred = set(worldview.get("preferred_partners", []))
+    competitors = set(worldview.get("competitors", []))
+    allies = set(state.get("alliances", {}).get(country, []))
+    independent = set(state.get("countries", {}))
+    ownership = state.get("sovereignty", {})
+    independent = {n for n in independent if ownership.get(n, n) == n}
+    relations = state.get("relations", {}).get(country, {})
+    politics = state.get("politics", {}).get(country, {})
+    approval = float(politics.get("approval", 55))
+    stability = float(c.get("stability", 50))
+    military = float(c.get("military", 50))
+    tech = float(c.get("tech", 40))
+    production = float(c.get("production", 45))
+    treasury = float(c.get("treasury", 0))
+    debt = float(c.get("debt", 0))
+    gdp = max(float(c.get("gdp", 0.01)), 0.00001)
+    active_wars = [
+        w for w in state.get("wars", {}).values()
+        if w.get("status") == "active" and country in w.get("participants", [])
+    ]
+
+    if active_wars:
+        enemies = []
+        for war in active_wars:
+            side = war.get("side_a", []) if country in war.get("side_b", []) else war.get("side_b", [])
+            enemies.extend(n for n in side if n != country)
+        enemy = next((n for n in enemies if n in state["countries"]), None)
+        if stability < 34 or approval < 22 or military < 28:
+            return {"action": "peace", "target": enemy,
+                    "rationale": "The government is prioritising survival and a negotiated end to an increasingly costly war."}
+        if military < 58 or c.get("military_spending", 0.035) < 0.055:
+            return {"action": "mobilize", "target": None,
+                    "rationale": "The government is reinforcing abstract readiness while the conflict remains active."}
+        return {"action": "continue_war", "target": enemy,
+                "rationale": "The government believes continued pressure serves its current strategic position."}
+
+    candidates = []
+
+    def offer(action, target, score, reason):
+        candidates.append((score + random.uniform(0, 1.4), action, target, reason))
+
+    economic_stress = (
+        c.get("budget_balance", 0) < 0
+        or debt > gdp * 850
+        or c.get("inflation", 0) > 12
+        or c.get("unemployment", 0) > 15
+    )
+    threat_level = max(
+        [max(0, -float(relations.get(n, 0))) for n in competitors if n in independent and n != country]
+        or [0]
+    )
+
+    social_score = 13 + max(0, 55 - stability) * 0.75 + max(0, 48 - approval) * 0.65
+    if economic_stress:
+        social_score += 5
+    offer("social_program", None, social_score,
+          "Domestic legitimacy is under pressure, so the government is investing in social stability.")
+
+    economy_score = 18 + (12 if goal == "prosperity" else 0)
+    economy_score += max(0, 55 - production) * 0.45
+    economy_score += 7 if economic_stress else 0
+    economy_score += 5 if treasury < gdp * 12 else 0
+    offer("invest_economy", None, economy_score,
+          "The government is strengthening productive capacity and its long-term economic base.")
+
+    research_score = 15 + (16 if goal == "innovation" else 0) + max(0, 75 - tech) * 0.32
+    offer("research", None, research_score,
+          "The government is investing in research to improve long-term national capabilities.")
+
+    mobilize_score = 10 + (13 if goal == "security" else 0)
+    mobilize_score += max(0, 58 - military) * 0.42 + threat_level * 0.12
+    if stability < 35:
+        mobilize_score -= 8
+    offer("mobilize", None, mobilize_score,
+          "The government is increasing defensive readiness in response to its security environment.")
+
+    trade_deals = {
+        tuple(sorted(x.get("countries", [])))
+        for x in state.get("trade_agreements", [])
+        if len(x.get("countries", [])) == 2
+    }
+    guarantees = {
+        (x.get("guarantor"), x.get("protected"))
+        for x in state.get("guarantees", [])
+    }
+    sanctions = {
+        (x.get("issuer"), x.get("target"))
+        for x in state.get("sanctions", [])
+    }
+    blocs = state.get("blocs", {})
+    my_bloc = next((b for b in blocs.values() if country in b.get("members", [])), None)
+
+    for target in independent:
+        if target == country:
+            continue
+        relation = float(relations.get(target, 0))
+        is_preferred = target in preferred
+        is_rival = target in competitors
+        target_military = float(state["countries"][target].get("military", 50))
+        pair = tuple(sorted((country, target)))
+
+        if pair not in trade_deals and relation > -35:
+            score = 15 + (12 if goal in ("prosperity", "influence") else 0)
+            score += 8 if is_preferred else 0
+            score += max(0, relation) * 0.12
+            offer("trade", target, score,
+                  f"The government sees trade with {target} as a way to strengthen economic ties and reduce strategic dependence.")
+
+        if relation < 48:
+            score = 10 + (10 if goal == "influence" else 0)
+            score += 10 if is_preferred else 0
+            score += max(0, 15 - relation) * 0.18
+            offer("diplomacy", target, score,
+                  f"The government is improving relations with {target} to preserve diplomatic options.")
+
+        if target not in allies and relation > 24 and len(allies) < 4:
+            score = 13 + (14 if goal in ("security", "influence") else 0)
+            score += 10 if is_preferred else 0
+            score += max(0, relation - 25) * 0.12
+            offer("form_alliance", target, score,
+                  f"The government considers {target} a useful partner for long-term security and influence.")
+
+        if (country, target) not in guarantees and is_preferred and relation > 35 and military >= target_military:
+            offer("guarantee_independence", target,
+                  12 + (12 if goal == "security" else 0),
+                  f"The government is extending a security guarantee to a friendly state, {target}.")
+
+        if (country, target) not in sanctions and is_rival and relation < -38:
+            offer("sanction", target, 13 + (10 if goal == "security" else 0),
+                  f"The government is applying limited economic pressure to a strategic competitor, {target}.")
+
+        if is_rival and relation < -72 and stability > 62 and military > target_military * 1.45:
+            offer("declare_war", target, 18 + (8 if goal == "security" else 0),
+                  f"The government has judged the rivalry and balance of power to have reached a critical point.")
+
+    if not my_bloc and goal == "influence" and state.get("turn", 0) % 7 == 0:
+        offer("create_bloc", None, 25,
+              "The government is building a diplomatic coalition around its long-term priorities.")
+    elif my_bloc and my_bloc.get("leader") == country and state.get("turn", 0) % 5 == 0:
+        members = set(my_bloc.get("members", []))
+        invitees = [n for n in preferred if n in independent and n not in members]
+        if invitees:
+            offer("invite_to_bloc", invitees[0], 24,
+                  "The government is expanding its diplomatic coalition with a preferred partner.")
+
+    if not candidates:
+        return {"action": "invest_economy", "target": None,
+                "rationale": "The government is maintaining long-term national development."}
+
+    _, action, target, reason = max(candidates, key=lambda item: item[0])
+    return {"action": action, "target": target, "rationale": reason}
+
 def choose_action(country, state, provider="Fallback", model=None):
     if provider == "Fallback":
-        return _fallback(country, state), "Fallback"
+        return _strategic_fallback(country, state), "Fallback"
 
     c = state["countries"][country]
     prompt = {
         "country": country,
         "profile": c,
         "worldview": c.get("worldview", {}),
+        "long_term_strategy": state.get("ai_profiles", {}).get(country, {}),
         "domestic_politics": state.get("politics", {}).get(country, {}),
         "economic_state": {k: c.get(k) for k in ("gdp", "budget", "budget_balance", "treasury", "debt", "production", "trade", "resources", "resource_stock", "inflation", "unemployment")},
         "turn": state["turn"],
@@ -245,6 +405,6 @@ def choose_action(country, state, provider="Fallback", model=None):
             "rationale": str(d.get("rationale", ""))[:240]
         }, provider
     except Exception as e:
-        d = _fallback(country, state)
+        d = _strategic_fallback(country, state)
         d["rationale"] = f"Fallback used ({type(e).__name__}); " + d["rationale"]
         return d, "Fallback"
