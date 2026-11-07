@@ -143,11 +143,35 @@ with td:
  agreements=world.get('trade_agreements',[])
  ultimatums=[u for u in world.get('ultimatums',[]) if u.get('status')=='pending']
  sanctions=world.get('sanctions',[])
- dc=st.columns(4)
- dc[0].metric('International blocs',len(blocs))
- dc[1].metric('Trade agreements',len(agreements))
- dc[2].metric('Independence guarantees',len(guarantees))
- dc[3].metric('Active sanctions',len(sanctions))
+ alliances=world.get('alliances',{})
+ alliance_pairs=sorted({tuple(sorted((a,b))) for a,members in alliances.items() for b in members if a in countries and b in countries and a in alliances.get(b,[])})
+ dc=st.columns(5)
+ dc[0].metric('Mutual alliances',len(alliance_pairs))
+ dc[1].metric('International blocs',len(blocs))
+ dc[2].metric('Trade agreements',len(agreements))
+ dc[3].metric('Independence guarantees',len(guarantees))
+ dc[4].metric('Active sanctions',len(sanctions))
+ st.markdown('### Mutual-defense alliances')
+ st.caption('These are formal bilateral military alliances. Allies may automatically join a partner\'s side if a war starts.')
+ if alliance_pairs:
+  alliance_rows=[]
+  for a,b in alliance_pairs:
+   shared_wars=[w.get('id') for w in world.get('wars',{}).values() if w.get('status')=='active' and a in w.get('participants',[]) and b in w.get('participants',[])]
+   alliance_rows.append({'Country A':a,'Country B':b,'Relations':world.get('relations',{}).get(a,{}).get(b,0),'At war together':bool(shared_wars)})
+  st.dataframe(pd.DataFrame(alliance_rows),hide_index=True,use_container_width=True)
+  alliance_country=st.selectbox('Inspect a country\'s alliances',list(countries),key='alliance_inspect_country')
+  allies=sorted([n for n in alliances.get(alliance_country,[]) if n in countries and alliance_country in alliances.get(n,[])])
+  if allies:
+   st.markdown(f'**{alliance_country} is allied with {len(allies)} countries:**')
+   for ally in allies:
+    relation=world.get('relations',{}).get(alliance_country,{}).get(ally,0)
+    current_war=next((w for w in world.get('wars',{}).values() if w.get('status')=='active' and alliance_country in w.get('participants',[]) and ally in w.get('participants',[])),None)
+    status=f' · fighting together in War #{current_war.get("id")}' if current_war else ''
+    st.write(f'• **{ally}** · relations {relation:+.0f}/100{status}')
+  else:
+   st.info(f'{alliance_country} has no active mutual-defense alliances.')
+ else:
+  st.info('No mutual-defense alliances have formed yet. Governments can create them as the simulation advances.')
  st.markdown('### International blocs')
  if blocs:
   for bloc in blocs.values():
